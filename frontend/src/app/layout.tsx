@@ -26,7 +26,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-dvh antialiased`}>
-      <body className="flex h-dvh flex-col overflow-hidden bg-background text-foreground">
+      <body className="h-dvh overflow-hidden bg-bg-void text-text-primary">
         <KernelProvider>{children}</KernelProvider>
       </body>
     </html>

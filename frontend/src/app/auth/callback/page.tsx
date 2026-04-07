@@ -16,7 +16,7 @@ function CallbackHandler() {
 
     const code = searchParams.get("code");
     if (!code) {
-      router.replace("/auth/login");
+      router.replace("/");
       return;
     }
 
@@ -30,10 +30,10 @@ function CallbackHandler() {
 
 function AuthSpinner({ label }: { label: string }) {
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-[var(--background)]">
+    <div className="flex min-h-dvh items-center justify-center bg-bg-void">
       <div className="flex flex-col items-center gap-4">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/10 border-t-[var(--accent)]" />
-        <p className="text-sm text-[var(--muted)]">{label}</p>
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-border-subtle border-t-accent" />
+        <p className="text-sm text-text-muted">{label}</p>
       </div>
     </div>
   );

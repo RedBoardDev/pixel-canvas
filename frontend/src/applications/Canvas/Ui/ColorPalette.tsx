@@ -22,27 +22,29 @@ export const COLORS = [
 interface ColorPaletteProps {
   selectedColor: string;
   onSelectColor: (color: string) => void;
-  disabled?: boolean;
 }
 
-export function ColorPalette({ selectedColor, onSelectColor, disabled }: ColorPaletteProps) {
+export function ColorPalette({ selectedColor, onSelectColor }: ColorPaletteProps) {
   return (
-    <div className="flex flex-wrap gap-1">
-      {COLORS.map((color) => (
-        <button
-          key={color}
-          type="button"
-          onClick={() => onSelectColor(color)}
-          disabled={disabled}
-          className={`h-7 w-7 rounded-md border-2 transition-all sm:h-8 sm:w-8 ${
-            selectedColor === color
-              ? "scale-110 border-white shadow-lg shadow-white/10"
-              : "border-transparent hover:scale-105 hover:border-white/30"
-          } ${disabled ? "opacity-40" : ""}`}
-          style={{ backgroundColor: color }}
-          aria-label={`Color ${color}`}
-        />
-      ))}
+    <div className="grid grid-cols-8 gap-[3px]">
+      {COLORS.map((color) => {
+        const isSelected = selectedColor === color;
+        return (
+          <button
+            key={color}
+            type="button"
+            onClick={() => onSelectColor(color)}
+            className={`h-[22px] w-[22px] rounded-[4px] border transition-transform sm:h-[26px] sm:w-[26px] ${
+              isSelected
+                ? "z-10 scale-[1.2] border-accent shadow-[0_0_8px_rgba(57,255,133,0.4)]"
+                : "border-white/[0.06] hover:scale-110 hover:border-white/20"
+            }`}
+            style={{ backgroundColor: color }}
+            aria-label={`Color ${color}`}
+            aria-pressed={isSelected}
+          />
+        );
+      })}
     </div>
   );
 }

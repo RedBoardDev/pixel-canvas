@@ -3,18 +3,18 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { Pixel } from "../Domain/entities/Pixel.entity";
 import type { ViewportBounds } from "../Domain/value-objects/ChunkCoordinate.vo";
-import { CoordinateDisplay } from "./CoordinateDisplay";
+import { CanvasHUD } from "./CanvasHUD";
 import { useCanvasInteraction } from "./hooks/useCanvasInteraction";
 import type { CanvasMode } from "./hooks/useCanvasMode";
 import { useCanvasRenderer } from "./hooks/useCanvasRenderer";
 import { useViewportTracking } from "./hooks/useViewportTracking";
 import { PixelTooltip } from "./PixelTooltip";
-import { ZoomControls } from "./ZoomControls";
 
 interface CanvasGridProps {
   pixels: Map<string, Pixel>;
   selectedColor: string;
   mode: CanvasMode;
+  isCooldown: boolean;
   onPixelClick: (x: number, y: number) => void;
   onViewportChange: (bounds: ViewportBounds) => void;
 }
@@ -23,6 +23,7 @@ export function CanvasGrid({
   pixels,
   selectedColor,
   mode,
+  isCooldown,
   onPixelClick,
   onViewportChange,
 }: CanvasGridProps) {
@@ -60,10 +61,12 @@ export function CanvasGrid({
     !isEditMode && hoverPos ? (pixels.get(`${hoverPos.x},${hoverPos.y}`) ?? null) : null;
 
   return (
-    <div ref={containerRef} className="relative h-full w-full overflow-hidden bg-[#060612]">
+    <div ref={containerRef} className="relative h-full w-full overflow-hidden bg-bg-void">
       <canvas
         ref={canvasRef}
-        className={isEditMode ? "cursor-crosshair" : "cursor-default"}
+        className={
+          isCooldown ? "cursor-progress" : isEditMode ? "cursor-crosshair" : "cursor-default"
+        }
         onMouseDown={handlers.handleMouseDown}
         onMouseMove={(e) => {
           mousePos.current = { x: e.clientX, y: e.clientY };
@@ -73,13 +76,13 @@ export function CanvasGrid({
         onMouseLeave={handlers.handleMouseLeave}
         onWheel={handlers.handleWheel}
       />
-      <ZoomControls
+      <CanvasHUD
         zoom={zoom}
         onZoomIn={controls.zoomIn}
         onZoomOut={controls.zoomOut}
         onReset={onReset}
+        hoverPos={hoverPos}
       />
-      {hoverPos && <CoordinateDisplay x={hoverPos.x} y={hoverPos.y} />}
       <PixelTooltip
         pixel={hoveredPixel}
         screenX={mousePos.current.x}

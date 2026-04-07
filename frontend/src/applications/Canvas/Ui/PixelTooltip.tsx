@@ -28,15 +28,15 @@ export function PixelTooltip({ pixel, screenX, screenY, containerRect }: PixelTo
 
   return (
     <div className="pointer-events-none absolute z-50 animate-fade-in" style={{ left: x, top: y }}>
-      <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/95 px-3 py-2.5 shadow-xl backdrop-blur-md">
+      <div className="rounded-lg border border-border-subtle/40 bg-bg-overlay px-3 py-2.5 shadow-xl backdrop-blur-xl">
         <div className="flex items-center gap-2.5">
           <span
-            className="h-5 w-5 shrink-0 rounded border border-white/10"
+            className="h-5 w-5 shrink-0 rounded border border-border-subtle"
             style={{ backgroundColor: pixel.color.hex }}
           />
           <div className="min-w-0">
-            <p className="text-xs font-medium text-white">{pixel.username}</p>
-            <p className="text-[10px] text-[var(--muted)]">
+            <p className="text-xs font-medium text-text-primary">{pixel.username}</p>
+            <p className="text-[10px] text-text-muted">
               {formatTimeAgo(pixel.updatedAt)} &middot;{" "}
               <span className="font-mono">{pixel.color.hex.toUpperCase()}</span>
             </p>

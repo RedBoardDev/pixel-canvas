@@ -3,9 +3,9 @@
 import { useCallback, useRef, useState } from "react";
 import type { ViewportBounds } from "../../Domain/value-objects/ChunkCoordinate.vo";
 
-const MIN_ZOOM = 0.3;
-const MAX_ZOOM = 30;
-const DEFAULT_ZOOM = 4;
+const MIN_ZOOM = 0.5;
+const MAX_ZOOM = 10;
+const DEFAULT_ZOOM = 1;
 
 interface InteractionConfig {
   pixelSize: number;

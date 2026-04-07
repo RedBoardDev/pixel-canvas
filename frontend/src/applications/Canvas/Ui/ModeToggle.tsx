@@ -10,25 +10,36 @@ interface ModeToggleProps {
 }
 
 export function ModeToggle({ mode, onToggle, canToggle }: ModeToggleProps) {
-  if (!canToggle) return null;
-
   return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface-light)] px-3 py-1.5 text-xs font-medium text-white/80 transition-all hover:border-[var(--border-hover)] hover:text-white"
-    >
-      {mode === "view" ? (
-        <>
-          <EyeIcon className="h-3.5 w-3.5" />
-          <span>View</span>
-        </>
-      ) : (
-        <>
-          <PencilIcon className="h-3.5 w-3.5" />
-          <span>Edit</span>
-        </>
-      )}
-    </button>
+    <>
+      <button
+        type="button"
+        onClick={mode !== "view" ? onToggle : undefined}
+        className={`flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-[11px] font-semibold uppercase tracking-wider transition-all ${
+          mode === "view"
+            ? "bg-bg-elevated text-text-primary"
+            : "text-text-muted hover:text-text-secondary"
+        }`}
+      >
+        <EyeIcon className="h-3.5 w-3.5" />
+        <span className="hidden sm:inline">Explore</span>
+      </button>
+      <button
+        type="button"
+        onClick={mode !== "edit" ? onToggle : undefined}
+        disabled={!canToggle}
+        className={`flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-[11px] font-semibold uppercase tracking-wider transition-all ${
+          mode === "edit"
+            ? "bg-accent text-bg-void"
+            : canToggle
+              ? "text-text-muted hover:text-text-secondary"
+              : "cursor-not-allowed text-text-muted/40"
+        }`}
+        title={!canToggle ? "Sign in to draw" : undefined}
+      >
+        <PencilIcon className="h-3.5 w-3.5" />
+        <span className="hidden sm:inline">Draw</span>
+      </button>
+    </>
   );
 }

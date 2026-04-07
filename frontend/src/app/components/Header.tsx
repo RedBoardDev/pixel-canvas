@@ -10,24 +10,25 @@ export function Header() {
   const { isAuthenticated, isLoading } = useAuth();
 
   return (
-    <header className="relative z-10 flex h-14 shrink-0 items-center justify-between border-b border-[var(--border)] bg-[var(--surface)] px-4 sm:px-6">
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--accent)]">
-            <PixelCanvasLogo />
-          </div>
-          <h1 className="text-base font-semibold tracking-tight text-white">Pixel Canvas</h1>
+    <header className="pointer-events-none fixed inset-x-0 top-0 z-20 flex h-12 items-center justify-between px-3 sm:px-5">
+      <div className="pointer-events-auto flex items-center gap-2.5">
+        <div className="flex items-center gap-2 rounded-xl border border-border-subtle/40 bg-bg-overlay px-2.5 py-1.5 backdrop-blur-md">
+          <PixelCanvasLogo size={16} />
+          <span className="hidden text-[13px] font-bold tracking-tight sm:block">
+            <span className="text-text-primary">PIXEL</span>
+            <span className="text-accent"> CANVAS</span>
+          </span>
         </div>
         <ConnectionBadge />
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="pointer-events-auto">
         {isLoading ? (
-          <div className="h-8 w-24 animate-pulse rounded-lg bg-white/5" />
+          <div className="h-7 w-20 animate-pulse rounded-xl bg-bg-elevated/30" />
         ) : isAuthenticated ? (
           <UserAvatar />
         ) : (
-          <LoginButton />
+          <LoginButton size="sm" />
         )}
       </div>
     </header>

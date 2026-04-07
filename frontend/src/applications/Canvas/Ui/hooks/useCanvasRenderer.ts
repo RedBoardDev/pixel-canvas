@@ -4,10 +4,10 @@ import { useCallback, useEffect, useRef } from "react";
 import type { Pixel } from "../../Domain/entities/Pixel.entity";
 
 const PIXEL_SIZE = 10;
-const BG_COLOR = "#0a0a1a";
-const EMPTY_PIXEL_COLOR = "#16162e";
-const GRID_COLOR = "rgba(255,255,255,0.06)";
-const HOVER_BORDER = "rgba(255,255,255,0.2)";
+const BG_COLOR = "#08080c";
+const EMPTY_PIXEL_COLOR = "#181830";
+const GRID_COLOR = "rgba(57,255,133,0.06)";
+const HOVER_BORDER = "rgba(57,255,133,0.5)";
 
 interface RendererParams {
   pixels: Map<string, Pixel>;
