@@ -15,6 +15,7 @@ interface RendererParams {
   zoom: number;
   hoverPos: { x: number; y: number } | null;
   selectedColor: string;
+  showEditCursor: boolean;
 }
 
 export function useCanvasRenderer(
@@ -31,7 +32,7 @@ export function useCanvasRenderer(
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const { pixels, offset, zoom, hoverPos, selectedColor } = params;
+    const { pixels, offset, zoom, hoverPos, selectedColor, showEditCursor } = params;
     const dpr = window.devicePixelRatio || 1;
     const w = canvas.width / dpr;
     const h = canvas.height / dpr;
@@ -90,8 +91,8 @@ export function useCanvasRenderer(
       }
     }
 
-    // Hover highlight
-    if (hoverPos) {
+    // Hover highlight (edit mode only)
+    if (hoverPos && showEditCursor) {
       ctx.fillStyle = selectedColor;
       ctx.globalAlpha = 0.4;
       ctx.fillRect(hoverPos.x * PIXEL_SIZE, hoverPos.y * PIXEL_SIZE, PIXEL_SIZE, PIXEL_SIZE);
