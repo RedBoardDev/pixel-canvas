@@ -38,8 +38,6 @@ type SessionItem struct {
 }
 
 func handler(ctx context.Context, outerRequest events.APIGatewayProxyRequest) error {
-	// Double désérialisation : le dispatcher envoie un APIGatewayProxyRequest
-	// dont le Body contient l'interaction Discord en JSON
 	var interaction shared.Interaction
 	if err := json.Unmarshal([]byte(outerRequest.Body), &interaction); err != nil {
 		return fmt.Errorf("failed to parse interaction: %w", err)
@@ -58,11 +56,11 @@ func handler(ctx context.Context, outerRequest events.APIGatewayProxyRequest) er
 	)
 
 	if interaction.Member == nil || !shared.IsAdmin(interaction.Member.Permissions) {
-		return patchDiscord(webhookURL, "❌ You need administrator permissions to manage sessions.")
+		return patchDiscord(webhookURL, "You need administrator permissions to manage sessions.")
 	}
 
 	if len(interaction.Data.Options) == 0 {
-		return patchDiscord(webhookURL, "❌ Missing subcommand.")
+		return patchDiscord(webhookURL, "Missing subcommand.")
 	}
 
 	subcommand := interaction.Data.Options[0].Name
@@ -76,21 +74,28 @@ func handler(ctx context.Context, outerRequest events.APIGatewayProxyRequest) er
 	case "reset":
 		return handleReset(ctx, webhookURL)
 	default:
-		return patchDiscord(webhookURL, "❌ Unknown subcommand.")
+		return patchDiscord(webhookURL, "Unknown subcommand.")
 	}
 }
 
 func handleStart(ctx context.Context, webhookURL, userID string) error {
-	// Check no session is already active
-	existing, _ := getSessionByStatus(ctx, "active")
-	if existing != nil {
+	active, _ := getSessionByStatus(ctx, "active")
+	if active != nil {
 		return patchDiscord(webhookURL, fmt.Sprintf(
-			"⚠️ A session is already active (`%s`). Pause it first with `/session pause`.",
-			existing.SessionID,
+			"A session is already active (`%s`).", active.SessionID,
 		))
 	}
 
-	// Generate unique session ID from timestamp
+	paused, _ := getSessionByStatus(ctx, "paused")
+	if paused != nil {
+		if err := updateSessionStatus(ctx, paused.SessionID, "active"); err != nil {
+			return patchDiscord(webhookURL, "Failed to resume session.")
+		}
+		return patchDiscord(webhookURL, fmt.Sprintf(
+			"Session `%s` resumed! Users can draw again with `/draw`.", paused.SessionID,
+		))
+	}
+
 	sessionID := fmt.Sprintf("session-%d", time.Now().UnixMilli())
 	now := time.Now().UTC().Format(time.RFC3339)
 
@@ -107,43 +112,42 @@ func handleStart(ctx context.Context, webhookURL, userID string) error {
 		},
 	})
 	if err != nil {
-		return patchDiscord(webhookURL, "❌ Failed to create session.")
+		return patchDiscord(webhookURL, "Failed to create session.")
 	}
 
 	return patchDiscord(webhookURL, fmt.Sprintf(
-		"✅ Session `%s` started! Users can now draw with `/draw`.", sessionID,
+		"Session `%s` started! Users can now draw with `/draw`.", sessionID,
 	))
 }
 
 func handlePause(ctx context.Context, webhookURL string) error {
 	session, err := getSessionByStatus(ctx, "active")
 	if err != nil || session == nil {
-		return patchDiscord(webhookURL, "❌ No active session to pause.")
+		return patchDiscord(webhookURL, "No active session to pause.")
 	}
 
 	if err := updateSessionStatus(ctx, session.SessionID, "paused"); err != nil {
-		return patchDiscord(webhookURL, "❌ Failed to pause session.")
+		return patchDiscord(webhookURL, "Failed to pause session.")
 	}
 
 	return patchDiscord(webhookURL, fmt.Sprintf(
-		"⏸️ Session `%s` paused. Resume it with `/session start`.", session.SessionID,
+		"Session `%s` paused. Resume it with `/session start`.", session.SessionID,
 	))
 }
 
 func handleReset(ctx context.Context, webhookURL string) error {
 	session, err := getSessionByStatus(ctx, "active")
 	if err != nil || session == nil {
-		return patchDiscord(webhookURL, "❌ No active session to reset.")
+		return patchDiscord(webhookURL, "No active session to reset.")
 	}
 
-	// Delete all pixels for this session (paginated)
 	deleted, err := deleteAllPixels(ctx, session.SessionID)
 	if err != nil {
-		return patchDiscord(webhookURL, "❌ Failed to reset canvas.")
+		return patchDiscord(webhookURL, "Failed to reset canvas.")
 	}
 
 	return patchDiscord(webhookURL, fmt.Sprintf(
-		"🗑️ Canvas reset! %d pixels deleted from session `%s`.", deleted, session.SessionID,
+		"Canvas reset! %d pixels deleted from session `%s`.", deleted, session.SessionID,
 	))
 }
 
@@ -212,7 +216,7 @@ func deleteAllPixels(ctx context.Context, sessionID string) (int, error) {
 	var lastKey map[string]types.AttributeValue
 
 	for {
-		// Query a batch of pixels
+
 		result, err := db.Query(ctx, &dynamodb.QueryInput{
 			TableName:              aws.String("canvas_pixels"),
 			KeyConditionExpression: aws.String("PK = :pk"),
@@ -223,10 +227,13 @@ func deleteAllPixels(ctx context.Context, sessionID string) (int, error) {
 			ExclusiveStartKey:    lastKey,
 		})
 		if err != nil {
-			return deleted, err
+			return deleted, fmt.Errorf("query failed: %w", err)
 		}
 
-		// Batch delete (max 25 per DynamoDB BatchWriteItem call)
+		if len(result.Items) == 0 {
+			break
+		}
+
 		for i := 0; i < len(result.Items); i += 25 {
 			end := i + 25
 			if end > len(result.Items) {
@@ -246,11 +253,14 @@ func deleteAllPixels(ctx context.Context, sessionID string) (int, error) {
 				}
 			}
 
-			db.BatchWriteItem(ctx, &dynamodb.BatchWriteItemInput{
+			_, err := db.BatchWriteItem(ctx, &dynamodb.BatchWriteItemInput{
 				RequestItems: map[string][]types.WriteRequest{
 					"canvas_pixels": requests,
 				},
 			})
+			if err != nil {
+				return deleted, fmt.Errorf("batch delete failed: %w", err)
+			}
 			deleted += len(batch)
 		}
 

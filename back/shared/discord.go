@@ -2,13 +2,11 @@ package shared
 
 import "fmt"
 
-// Interaction types
 const (
 	InteractionTypePing           = 1
 	InteractionTypeApplicationCmd = 2
 )
 
-// Response types
 const (
 	ResponseTypePong     = 1
 	ResponseTypeMessage  = 4
@@ -54,7 +52,6 @@ type InteractionResponseData struct {
 	Flags   int    `json:"flags,omitempty"`
 }
 
-// IsAdmin checks if the member has the Administrator permission (bit 3)
 func IsAdmin(permissions string) bool {
 	var perms int64
 	fmt.Sscanf(permissions, "%d", &perms)

@@ -81,7 +81,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		})
 		if err != nil {
 			log.Printf("ERROR: failed to invoke lambda %s: %v", targetLambda, err)
-			return shared.RespondText("❌ Internal error invoking command handler.")
+			return shared.RespondText("Internal error invoking command handler.")
 		}
 		log.Printf("INFO: invoke result status: %d", result.StatusCode)
 
