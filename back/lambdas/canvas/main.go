@@ -27,15 +27,15 @@ func init() {
 }
 
 type SessionItem struct {
-	PK                  string `dynamodbav:"PK"`
-	SK                  string `dynamodbav:"SK"`
-	Status              string `dynamodbav:"status"`
-	SessionID           string `dynamodbav:"session_id"`
-	CreatedBy           string `dynamodbav:"created_by"`
-	CreatedAt           string `dynamodbav:"created_at"`
-	LastSnapshotURL     string `dynamodbav:"last_snapshot_url"`
-	LastSnapshotAt      string `dynamodbav:"last_snapshot_at"`
-	LastSnapshotPixels  int    `dynamodbav:"last_snapshot_pixels"`
+	PK                 string `dynamodbav:"PK"`
+	SK                 string `dynamodbav:"SK"`
+	Status             string `dynamodbav:"status"`
+	SessionID          string `dynamodbav:"session_id"`
+	CreatedBy          string `dynamodbav:"created_by"`
+	CreatedAt          string `dynamodbav:"created_at"`
+	LastSnapshotURL    string `dynamodbav:"last_snapshot_url"`
+	LastSnapshotAt     string `dynamodbav:"last_snapshot_at"`
+	LastSnapshotPixels int    `dynamodbav:"last_snapshot_pixels"`
 }
 
 func handler(ctx context.Context, outerRequest events.APIGatewayProxyRequest) error {
@@ -51,28 +51,25 @@ func handler(ctx context.Context, outerRequest events.APIGatewayProxyRequest) er
 		appID, token,
 	)
 
-	// Get active session
 	session, err := getActiveSession(ctx)
 	if err != nil || session == nil {
-		return patchDiscord(webhookURL, "❌ No active session. An admin must start one with `/session start`.")
+		return patchDiscord(webhookURL, "No active session. An admin must start one with `/session start`.")
 	}
 
-	// No snapshot taken yet
 	if session.LastSnapshotURL == "" {
 		return patchDiscord(webhookURL, fmt.Sprintf(
-			"🎨 **Canvas — Session `%s`**\nStatus: %s\n\nNo snapshot yet. An admin can take one with `/snapshot`.",
+			"**Canvas — Session `%s`**\nStatus: %s\n\nNo snapshot yet. An admin can take one with `/snapshot`.",
 			session.SessionID, statusEmoji(session.Status),
 		))
 	}
 
-	// Post last snapshot as embed
 	return postSnapshotEmbed(webhookURL, session)
 }
 
 func postSnapshotEmbed(webhookURL string, session *SessionItem) error {
 	embed := map[string]interface{}{
-		"title":       fmt.Sprintf("🎨 Canvas — Session `%s`", session.SessionID),
-		"description": fmt.Sprintf("**%d pixels** au dernier snapshot\nPris le `%s`\n\n*Utilisez `/snapshot` pour actualiser.*", session.LastSnapshotPixels, session.LastSnapshotAt),
+		"title":       fmt.Sprintf("Canvas — Session `%s`", session.SessionID),
+		"description": fmt.Sprintf("**%d pixels** in the last snapshot\nTaken at `%s`\n\n*Use `/snapshot` to refresh.*", session.LastSnapshotPixels, session.LastSnapshotAt),
 		"color":       0x5865F2,
 		"image":       map[string]string{"url": session.LastSnapshotURL},
 	}
@@ -116,11 +113,11 @@ func getActiveSession(ctx context.Context) (*SessionItem, error) {
 func statusEmoji(status string) string {
 	switch status {
 	case "active":
-		return "🟢 Active"
+		return "Active"
 	case "paused":
-		return "🟡 Paused"
+		return "Paused"
 	case "ended":
-		return "🔴 Ended"
+		return "Ended"
 	default:
 		return status
 	}

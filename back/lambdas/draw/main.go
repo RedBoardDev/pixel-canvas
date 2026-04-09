@@ -5,8 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 
@@ -30,16 +30,16 @@ const (
 
 var db *dynamodb.Client
 var colorPalette = map[string]string{
-    "#000000": "Noir",
-    "#FFFFFF": "Blanc",
-    "#FF0000": "Rouge",
-    "#00FF00": "Vert",
-    "#0000FF": "Bleu",
-    "#FFFF00": "Jaune",
-    "#FF00FF": "Magenta",
-    "#00FFFF": "Cyan",
-    "#FFA500": "Orange",
-    "#800080": "Violet",
+	"#000000": "Black",
+	"#FFFFFF": "White",
+	"#FF0000": "Red",
+	"#00FF00": "Green",
+	"#0000FF": "Blue",
+	"#FFFF00": "Yellow",
+	"#FF00FF": "Magenta",
+	"#00FFFF": "Cyan",
+	"#FFA500": "Orange",
+	"#800080": "Purple",
 }
 
 func init() {
@@ -61,13 +61,12 @@ func handler(ctx context.Context, outerRequest events.APIGatewayProxyRequest) er
 	)
 
 	if interaction.Member == nil || interaction.Member.User == nil {
-		return patchDiscord(webhookURL, "❌ Could not identify user.")
+		return patchDiscord(webhookURL, "Could not identify user.")
 	}
 
 	userID := interaction.Member.User.ID
 	username := interaction.Member.User.Username
 
-	// Parse options
 	opts := parseOptions(interaction.Data.Options)
 	x, errX := strconv.Atoi(fmt.Sprintf("%v", opts["x"]))
 	y, errY := strconv.Atoi(fmt.Sprintf("%v", opts["y"]))
@@ -75,28 +74,25 @@ func handler(ctx context.Context, outerRequest events.APIGatewayProxyRequest) er
 	colorName, allowed := colorPalette[color]
 
 	if errX != nil || errY != nil {
-		return patchDiscord(webhookURL, "❌ Invalid coordinates.")
+		return patchDiscord(webhookURL, "Invalid coordinates.")
 	}
 	if !allowed {
-		return patchDiscord(webhookURL, "❌ Couleur invalide. Utilise `/draw` et sélectionne une couleur dans la liste.")
+		return patchDiscord(webhookURL, "Invalid color. Use `/draw` and select a color from the list.")
 	}
 
-	// Check active session
 	sessionID, err := getActiveSession(ctx)
 	if err != nil || sessionID == "" {
-		return patchDiscord(webhookURL, "❌ No active session. An admin must start one with `/session start`.")
+		return patchDiscord(webhookURL, "No active session. An admin must start one with `/session start`.")
 	}
 
-	// Check rate limit
 	allowed, remaining, err := checkRateLimit(ctx, userID, sessionID)
 	if err != nil {
-		return patchDiscord(webhookURL, "❌ Internal error checking rate limit.")
+		return patchDiscord(webhookURL, "Internal error checking rate limit.")
 	}
 	if !allowed {
-		return patchDiscord(webhookURL, "⏳ Rate limit reached. You can draw up to 20 pixels per minute.")
+		return patchDiscord(webhookURL, "Rate limit reached. You can draw up to 20 pixels per minute.")
 	}
 
-	// Write pixel to DynamoDB
 	now := time.Now().UTC().Format(time.RFC3339)
 	_, err = db.PutItem(ctx, &dynamodb.PutItemInput{
 		TableName: aws.String(tableName),
@@ -110,12 +106,12 @@ func handler(ctx context.Context, outerRequest events.APIGatewayProxyRequest) er
 		},
 	})
 	if err != nil {
-		return patchDiscord(webhookURL, "❌ Failed to save pixel.")
+		return patchDiscord(webhookURL, "Failed to save pixel.")
 	}
 
 	return patchDiscord(webhookURL,
-    fmt.Sprintf("✅ Pixel dessiné en (%d, %d) en **%s** — %d/%d pixels restants cette minute.",
-        x, y, colorName, maxPixelsPerMinute-remaining-1, maxPixelsPerMinute))
+		fmt.Sprintf("Pixel drawn at (%d, %d) in **%s** — %d/%d pixels remaining this minute.",
+			x, y, colorName, maxPixelsPerMinute-remaining-1, maxPixelsPerMinute))
 }
 
 func getActiveSession(ctx context.Context) (string, error) {
@@ -167,7 +163,6 @@ func checkRateLimit(ctx context.Context, userID, sessionID string) (allowed bool
 		}
 	}
 
-	// Reset if we're in a new minute window
 	if currentWindow != windowStart.Format(time.RFC3339) {
 		currentCount = 0
 	}
@@ -176,7 +171,6 @@ func checkRateLimit(ctx context.Context, userID, sessionID string) (allowed bool
 		return false, currentCount, nil
 	}
 
-	// Increment counter
 	db.PutItem(ctx, &dynamodb.PutItemInput{
 		TableName: aws.String(rateLimitTable),
 		Item: map[string]types.AttributeValue{
@@ -200,7 +194,6 @@ func parseOptions(options []shared.InteractionOption) map[string]interface{} {
 }
 
 func patchDiscord(webhookURL, content string) error {
-	// PATCH the deferred message with the actual response
 	body, _ := json.Marshal(map[string]string{"content": content})
 	req, _ := http.NewRequest(http.MethodPatch, webhookURL, bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")

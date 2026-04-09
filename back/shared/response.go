@@ -29,7 +29,7 @@ func RespondEphemeral(content string) (events.APIGatewayProxyResponse, error) {
 		Type: ResponseTypeMessage,
 		Data: &InteractionResponseData{
 			Content: content,
-			Flags:   64, // ephemeral — visible only by the user
+			Flags:   64,
 		},
 	})
 }
