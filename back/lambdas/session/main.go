@@ -81,16 +81,26 @@ func handler(ctx context.Context, outerRequest events.APIGatewayProxyRequest) er
 }
 
 func handleStart(ctx context.Context, webhookURL, userID string) error {
-	// Check no session is already active
-	existing, _ := getSessionByStatus(ctx, "active")
-	if existing != nil {
+	// Vérifie d'abord si une session active existe déjà
+	active, _ := getSessionByStatus(ctx, "active")
+	if active != nil {
 		return patchDiscord(webhookURL, fmt.Sprintf(
-			"⚠️ A session is already active (`%s`). Pause it first with `/session pause`.",
-			existing.SessionID,
+			"⚠️ A session is already active (`%s`).", active.SessionID,
 		))
 	}
 
-	// Generate unique session ID from timestamp
+	// Vérifie si une session pausée existe — si oui, la reprendre
+	paused, _ := getSessionByStatus(ctx, "paused")
+	if paused != nil {
+		if err := updateSessionStatus(ctx, paused.SessionID, "active"); err != nil {
+			return patchDiscord(webhookURL, "❌ Failed to resume session.")
+		}
+		return patchDiscord(webhookURL, fmt.Sprintf(
+			"▶️ Session `%s` resumed! Users can draw again with `/draw`.", paused.SessionID,
+		))
+	}
+
+	// Aucune session existante — créer une nouvelle
 	sessionID := fmt.Sprintf("session-%d", time.Now().UnixMilli())
 	now := time.Now().UTC().Format(time.RFC3339)
 
