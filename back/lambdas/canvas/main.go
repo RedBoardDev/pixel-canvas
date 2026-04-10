@@ -36,6 +36,7 @@ type SessionItem struct {
 	LastSnapshotURL    string `dynamodbav:"last_snapshot_url"`
 	LastSnapshotAt     string `dynamodbav:"last_snapshot_at"`
 	LastSnapshotPixels int    `dynamodbav:"last_snapshot_pixels"`
+	LastSnapshotLarge  bool   `dynamodbav:"last_snapshot_large"`
 }
 
 func handler(ctx context.Context, outerRequest events.APIGatewayProxyRequest) error {
@@ -67,6 +68,13 @@ func handler(ctx context.Context, outerRequest events.APIGatewayProxyRequest) er
 }
 
 func postSnapshotEmbed(webhookURL string, session *SessionItem) error {
+	if session.LastSnapshotLarge {
+		return patchDiscord(webhookURL, fmt.Sprintf(
+			"**Canvas — Session `%s`**\n%d pixels au dernier snapshot — pris le `%s`\n\n[Canvas disponible ici](%s)\n\n*Lien valide 24h — utilisez `/snapshot` pour actualiser.*",
+			session.SessionID, session.LastSnapshotPixels, session.LastSnapshotAt, session.LastSnapshotURL,
+		))
+	}
+
 	embed := map[string]interface{}{
 		"title":       fmt.Sprintf("Canvas — Session `%s`", session.SessionID),
 		"description": fmt.Sprintf("**%d pixels** in the last snapshot\nTaken at `%s`\n\n*Use `/snapshot` to refresh.*", session.LastSnapshotPixels, session.LastSnapshotAt),

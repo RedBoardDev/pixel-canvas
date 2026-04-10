@@ -42,6 +42,16 @@ var colorPalette = map[string]string{
 	"#800080": "Purple",
 }
 
+type SessionItem struct {
+    PK           string `dynamodbav:"PK"`
+    SK           string `dynamodbav:"SK"`
+    Status       string `dynamodbav:"status"`
+    SessionID    string `dynamodbav:"session_id"`
+    CanvasSize   string `dynamodbav:"canvas_size"`
+    CanvasWidth  int    `dynamodbav:"canvas_width"`
+    CanvasHeight int    `dynamodbav:"canvas_height"`
+}
+
 func init() {
 	cfg, _ := config.LoadDefaultConfig(context.Background())
 	db = dynamodb.NewFromConfig(cfg)
@@ -80,12 +90,21 @@ func handler(ctx context.Context, outerRequest events.APIGatewayProxyRequest) er
 		return patchDiscord(webhookURL, "Invalid color. Use `/draw` and select a color from the list.")
 	}
 
-	sessionID, err := getActiveSession(ctx)
-	if err != nil || sessionID == "" {
+	session, err := getActiveSession(ctx)
+	if err != nil || session == nil {
 		return patchDiscord(webhookURL, "No active session. An admin must start one with `/session start`.")
 	}
 
-	allowed, remaining, err := checkRateLimit(ctx, userID, sessionID)
+	if session.CanvasWidth > 0 && session.CanvasHeight > 0 {
+		if x < 0 || x >= session.CanvasWidth || y < 0 || y >= session.CanvasHeight {
+			return patchDiscord(webhookURL, fmt.Sprintf(
+				"Coordinates (%d, %d) are out of bounds. Canvas size is **%s** (0 to %d on X, 0 to %d on Y).",
+				x, y, session.CanvasSize, session.CanvasWidth-1, session.CanvasHeight-1,
+			))
+		}
+	}
+
+	allowed, remaining, err := checkRateLimit(ctx, userID, session.SessionID)
 	if err != nil {
 		return patchDiscord(webhookURL, "Internal error checking rate limit.")
 	}
@@ -97,7 +116,7 @@ func handler(ctx context.Context, outerRequest events.APIGatewayProxyRequest) er
 	_, err = db.PutItem(ctx, &dynamodb.PutItemInput{
 		TableName: aws.String(tableName),
 		Item: map[string]types.AttributeValue{
-			"PK":         &types.AttributeValueMemberS{Value: fmt.Sprintf("SESSION#%s", sessionID)},
+			"PK":         &types.AttributeValueMemberS{Value: fmt.Sprintf("SESSION#%s", session.SessionID)},
 			"SK":         &types.AttributeValueMemberS{Value: fmt.Sprintf("PIXEL#%d#%d", x, y)},
 			"color":      &types.AttributeValueMemberS{Value: color},
 			"user_id":    &types.AttributeValueMemberS{Value: userID},
@@ -114,24 +133,24 @@ func handler(ctx context.Context, outerRequest events.APIGatewayProxyRequest) er
 			x, y, colorName, maxPixelsPerMinute-remaining-1, maxPixelsPerMinute))
 }
 
-func getActiveSession(ctx context.Context) (string, error) {
-	result, err := db.Scan(ctx, &dynamodb.ScanInput{
-		TableName:        aws.String(sessionsTable),
-		FilterExpression: aws.String("#s = :active AND SK = :meta"),
-		ExpressionAttributeNames: map[string]string{
-			"#s": "status",
-		},
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":active": &types.AttributeValueMemberS{Value: "active"},
-			":meta":   &types.AttributeValueMemberS{Value: "METADATA"},
-		},
-	})
-	if err != nil || len(result.Items) == 0 {
-		return "", err
-	}
-	var item map[string]string
-	attributevalue.UnmarshalMap(result.Items[0], &item)
-	return item["session_id"], nil
+func getActiveSession(ctx context.Context) (*SessionItem, error) {
+    result, err := db.Scan(ctx, &dynamodb.ScanInput{
+        TableName:        aws.String(sessionsTable),
+        FilterExpression: aws.String("#s = :active AND SK = :meta"),
+        ExpressionAttributeNames: map[string]string{
+            "#s": "status",
+        },
+        ExpressionAttributeValues: map[string]types.AttributeValue{
+            ":active": &types.AttributeValueMemberS{Value: "active"},
+            ":meta":   &types.AttributeValueMemberS{Value: "METADATA"},
+        },
+    })
+    if err != nil || len(result.Items) == 0 {
+        return nil, err
+    }
+    var session SessionItem
+    attributevalue.UnmarshalMap(result.Items[0], &session)
+    return &session, nil
 }
 
 func checkRateLimit(ctx context.Context, userID, sessionID string) (allowed bool, count int, err error) {

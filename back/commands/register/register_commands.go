@@ -19,6 +19,7 @@ type CommandOption struct {
     Description string          `json:"description"`
     Required    bool            `json:"required"`
     Choices     []CommandChoice `json:"choices,omitempty"`
+	Options        []CommandOption  `json:"options,omitempty"`
 }
 
 type Command struct {
@@ -87,6 +88,14 @@ func main() {
 					Type:        OptionTypeSubCommand,
 					Name:        "start",
 					Description: "Start a new session",
+					Options: []CommandOption{
+						{
+							Type:        OptionTypeString,
+							Name:        "size",
+							Description: "Canvas size (ex: 100x100) or 'infinite'. Required for new sessions.",
+							Required:    false,
+						},
+					},
 				},
 				{
 					Type:        OptionTypeSubCommand,

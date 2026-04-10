@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"discord-bot/shared"
@@ -28,13 +30,49 @@ func init() {
 }
 
 type SessionItem struct {
-	PK        string `dynamodbav:"PK"`
-	SK        string `dynamodbav:"SK"`
-	Status    string `dynamodbav:"status"`
-	SessionID string `dynamodbav:"session_id"`
-	CreatedBy string `dynamodbav:"created_by"`
-	CreatedAt string `dynamodbav:"created_at"`
-	UpdatedAt string `dynamodbav:"updated_at"`
+	PK                 string `dynamodbav:"PK"`
+	SK                 string `dynamodbav:"SK"`
+	Status             string `dynamodbav:"status"`
+	SessionID          string `dynamodbav:"session_id"`
+	CreatedBy          string `dynamodbav:"created_by"`
+	CreatedAt          string `dynamodbav:"created_at"`
+	UpdatedAt          string `dynamodbav:"updated_at"`
+	CanvasSize         string `dynamodbav:"canvas_size"`
+	CanvasWidth        int    `dynamodbav:"canvas_width"`
+	CanvasHeight       int    `dynamodbav:"canvas_height"`
+	LastSnapshotURL    string `dynamodbav:"last_snapshot_url"`
+	LastSnapshotAt     string `dynamodbav:"last_snapshot_at"`
+	LastSnapshotPixels int    `dynamodbav:"last_snapshot_pixels"`
+}
+
+type CanvasSize struct {
+	Width    int
+	Height   int
+	Infinite bool
+}
+
+func parseCanvasSize(raw string) (*CanvasSize, error) {
+	raw = strings.TrimSpace(strings.ToLower(raw))
+	if raw == "infinite" || raw == "infini" || raw == "inf" {
+		return &CanvasSize{Infinite: true}, nil
+	}
+	parts := strings.Split(raw, "x")
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("invalid format")
+	}
+	w, errW := strconv.Atoi(strings.TrimSpace(parts[0]))
+	h, errH := strconv.Atoi(strings.TrimSpace(parts[1]))
+	if errW != nil || errH != nil || w <= 0 || h <= 0 {
+		return nil, fmt.Errorf("invalid dimensions")
+	}
+	return &CanvasSize{Width: w, Height: h}, nil
+}
+
+func canvasSizeLabel(size *CanvasSize) string {
+	if size.Infinite {
+		return "Infinie"
+	}
+	return fmt.Sprintf("%dx%d", size.Width, size.Height)
 }
 
 func handler(ctx context.Context, outerRequest events.APIGatewayProxyRequest) error {
@@ -68,7 +106,15 @@ func handler(ctx context.Context, outerRequest events.APIGatewayProxyRequest) er
 
 	switch subcommand {
 	case "start":
-		return handleStart(ctx, webhookURL, userID)
+		sizeRaw := ""
+		if len(interaction.Data.Options[0].Options) > 0 {
+			for _, opt := range interaction.Data.Options[0].Options {
+				if opt.Name == "size" {
+					sizeRaw = fmt.Sprintf("%v", opt.Value)
+				}
+			}
+		}
+		return handleStart(ctx, webhookURL, userID, sizeRaw)
 	case "pause":
 		return handlePause(ctx, webhookURL)
 	case "reset":
@@ -78,7 +124,7 @@ func handler(ctx context.Context, outerRequest events.APIGatewayProxyRequest) er
 	}
 }
 
-func handleStart(ctx context.Context, webhookURL, userID string) error {
+func handleStart(ctx context.Context, webhookURL, userID string, sizeRaw string) error {
 	active, _ := getSessionByStatus(ctx, "active")
 	if active != nil {
 		return patchDiscord(webhookURL, fmt.Sprintf(
@@ -88,35 +134,110 @@ func handleStart(ctx context.Context, webhookURL, userID string) error {
 
 	paused, _ := getSessionByStatus(ctx, "paused")
 	if paused != nil {
+		if sizeRaw != "" {
+			size, err := parseCanvasSize(sizeRaw)
+			if err != nil {
+				return patchDiscord(webhookURL,
+					"Invalid size format. Use `100x100` for a fixed size or `infinite` for unlimited.",
+				)
+			}
+			sizeLabel := canvasSizeLabel(size)
+			updateExpr := "SET #s = :active, updated_at = :now, canvas_size = :cs"
+			exprValues := map[string]types.AttributeValue{
+				":active": &types.AttributeValueMemberS{Value: "active"},
+				":now":    &types.AttributeValueMemberS{Value: time.Now().UTC().Format(time.RFC3339)},
+				":cs":     &types.AttributeValueMemberS{Value: sizeLabel},
+			}
+			if !size.Infinite {
+				updateExpr += ", canvas_width = :cw, canvas_height = :ch"
+				exprValues[":cw"] = &types.AttributeValueMemberN{Value: strconv.Itoa(size.Width)}
+				exprValues[":ch"] = &types.AttributeValueMemberN{Value: strconv.Itoa(size.Height)}
+			} else {
+				updateExpr += " REMOVE canvas_width, canvas_height"
+			}
+			_, err = db.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+				TableName: aws.String("sessions"),
+				Key: map[string]types.AttributeValue{
+					"PK": &types.AttributeValueMemberS{Value: fmt.Sprintf("SESSION#%s", paused.SessionID)},
+					"SK": &types.AttributeValueMemberS{Value: "METADATA"},
+				},
+				UpdateExpression: aws.String(updateExpr),
+				ExpressionAttributeNames: map[string]string{
+					"#s": "status",
+				},
+				ExpressionAttributeValues: exprValues,
+			})
+			if err != nil {
+				return patchDiscord(webhookURL, "Failed to resume session with new size.")
+			}
+			return patchDiscord(webhookURL, fmt.Sprintf(
+				"Session `%s` resumed with new canvas size: **%s**!",
+				paused.SessionID, sizeLabel,
+			))
+		}
+
+		// Pas de nouvelle taille — reprise simple
 		if err := updateSessionStatus(ctx, paused.SessionID, "active"); err != nil {
 			return patchDiscord(webhookURL, "Failed to resume session.")
 		}
+		sizeInfo := paused.CanvasSize
+		if sizeInfo == "" {
+			sizeInfo = "Infinite"
+		}
 		return patchDiscord(webhookURL, fmt.Sprintf(
-			"Session `%s` resumed! Users can draw again with `/draw`.", paused.SessionID,
+			"Session `%s` resumed! Canvas size: **%s**.",
+			paused.SessionID, sizeInfo,
 		))
+	}
+
+	// Aucune session existante — nouvelle session, taille obligatoire
+	if sizeRaw == "" {
+		return patchDiscord(webhookURL,
+			"Please specify a canvas size to start a new session.\n"+
+				"Examples:\n"+
+				"• `/session start size:100x100` — canvas of 100×100 pixels\n"+
+				"• `/session start size:infinite` — unlimited canvas",
+		)
+	}
+
+	size, err := parseCanvasSize(sizeRaw)
+	if err != nil {
+		return patchDiscord(webhookURL,
+			"Invalid size format. Use `100x100` for a fixed size or `infinite` for unlimited.",
+		)
 	}
 
 	sessionID := fmt.Sprintf("session-%d", time.Now().UnixMilli())
 	now := time.Now().UTC().Format(time.RFC3339)
+	sizeLabel := canvasSizeLabel(size)
 
-	_, err := db.PutItem(ctx, &dynamodb.PutItemInput{
+	item := map[string]types.AttributeValue{
+		"PK":          &types.AttributeValueMemberS{Value: fmt.Sprintf("SESSION#%s", sessionID)},
+		"SK":          &types.AttributeValueMemberS{Value: "METADATA"},
+		"session_id":  &types.AttributeValueMemberS{Value: sessionID},
+		"status":      &types.AttributeValueMemberS{Value: "active"},
+		"created_by":  &types.AttributeValueMemberS{Value: userID},
+		"created_at":  &types.AttributeValueMemberS{Value: now},
+		"updated_at":  &types.AttributeValueMemberS{Value: now},
+		"canvas_size": &types.AttributeValueMemberS{Value: sizeLabel},
+	}
+
+	if !size.Infinite {
+		item["canvas_width"] = &types.AttributeValueMemberN{Value: strconv.Itoa(size.Width)}
+		item["canvas_height"] = &types.AttributeValueMemberN{Value: strconv.Itoa(size.Height)}
+	}
+
+	_, err = db.PutItem(ctx, &dynamodb.PutItemInput{
 		TableName: aws.String("sessions"),
-		Item: map[string]types.AttributeValue{
-			"PK":         &types.AttributeValueMemberS{Value: fmt.Sprintf("SESSION#%s", sessionID)},
-			"SK":         &types.AttributeValueMemberS{Value: "METADATA"},
-			"session_id": &types.AttributeValueMemberS{Value: sessionID},
-			"status":     &types.AttributeValueMemberS{Value: "active"},
-			"created_by": &types.AttributeValueMemberS{Value: userID},
-			"created_at": &types.AttributeValueMemberS{Value: now},
-			"updated_at": &types.AttributeValueMemberS{Value: now},
-		},
+		Item:      item,
 	})
 	if err != nil {
 		return patchDiscord(webhookURL, "Failed to create session.")
 	}
 
 	return patchDiscord(webhookURL, fmt.Sprintf(
-		"Session `%s` started! Users can now draw with `/draw`.", sessionID,
+		"Session `%s` started! Canvas size: **%s**. Users can now draw with `/draw`.",
+		sessionID, sizeLabel,
 	))
 }
 
