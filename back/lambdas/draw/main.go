@@ -155,7 +155,9 @@ func getActiveSession(ctx context.Context) (*SessionItem, error) {
         return nil, err
     }
     var session SessionItem
-    attributevalue.UnmarshalMap(result.Items[0], &session)
+    if err := attributevalue.UnmarshalMap(result.Items[0], &session); err != nil {
+        return nil, err
+    }
     return &session, nil
 }
 
@@ -196,7 +198,7 @@ func checkRateLimit(ctx context.Context, userID, sessionID string) (allowed bool
 		return false, currentCount, nil
 	}
 
-	db.PutItem(ctx, &dynamodb.PutItemInput{
+	_, _ = db.PutItem(ctx, &dynamodb.PutItemInput{
 		TableName: aws.String(rateLimitTable),
 		Item: map[string]types.AttributeValue{
 			"PK":           &types.AttributeValueMemberS{Value: pk},
@@ -222,7 +224,7 @@ func patchDiscord(webhookURL, content string) error {
 	body, _ := json.Marshal(map[string]string{"content": content})
 	req, _ := http.NewRequest(http.MethodPatch, webhookURL, bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
-	http.DefaultClient.Do(req)
+	_, _ = http.DefaultClient.Do(req)
 	return nil
 }
 

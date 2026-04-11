@@ -70,7 +70,7 @@ func parseCanvasSize(raw string) (*CanvasSize, error) {
 
 func canvasSizeLabel(size *CanvasSize) string {
 	if size.Infinite {
-		return "Infinie"
+		return "Infinite"
 	}
 	return fmt.Sprintf("%dx%d", size.Width, size.Height)
 }
@@ -272,26 +272,6 @@ func handleReset(ctx context.Context, webhookURL string) error {
 	))
 }
 
-func getActiveSession(ctx context.Context) (*SessionItem, error) {
-	result, err := db.Scan(ctx, &dynamodb.ScanInput{
-		TableName:        aws.String("sessions"),
-		FilterExpression: aws.String("#s = :active AND SK = :meta"),
-		ExpressionAttributeNames: map[string]string{
-			"#s": "status",
-		},
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":active": &types.AttributeValueMemberS{Value: "active"},
-			":meta":   &types.AttributeValueMemberS{Value: "METADATA"},
-		},
-	})
-	if err != nil || len(result.Items) == 0 {
-		return nil, err
-	}
-	var session SessionItem
-	attributevalue.UnmarshalMap(result.Items[0], &session)
-	return &session, nil
-}
-
 func getSessionByStatus(ctx context.Context, status string) (*SessionItem, error) {
 	result, err := db.Scan(ctx, &dynamodb.ScanInput{
 		TableName:        aws.String("sessions"),
@@ -308,7 +288,9 @@ func getSessionByStatus(ctx context.Context, status string) (*SessionItem, error
 		return nil, err
 	}
 	var session SessionItem
-	attributevalue.UnmarshalMap(result.Items[0], &session)
+	if err := attributevalue.UnmarshalMap(result.Items[0], &session); err != nil {
+		return nil, err
+	}
 	return &session, nil
 }
 
@@ -398,7 +380,7 @@ func patchDiscord(webhookURL, content string) error {
 	body, _ := json.Marshal(map[string]string{"content": content})
 	req, _ := http.NewRequest(http.MethodPatch, webhookURL, bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
-	http.DefaultClient.Do(req)
+	_, _ = http.DefaultClient.Do(req)
 	return nil
 }
 

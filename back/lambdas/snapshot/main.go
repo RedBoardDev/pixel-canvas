@@ -192,7 +192,7 @@ func renderCanvas(pixels []PixelItem) ([]byte, int, int, error) {
 
 	for _, p := range pixels {
 		var px, py int
-		fmt.Sscanf(strings.TrimPrefix(p.SK, "PIXEL#"), "%d#%d", &px, &py)
+		_, _ = fmt.Sscanf(strings.TrimPrefix(p.SK, "PIXEL#"), "%d#%d", &px, &py)
 
 		ix := (px - minX) * blockSize
 		iy := (py - minY) * blockSize
@@ -238,13 +238,13 @@ func postSnapshotToDiscord(webhookURL string, imgBytes []byte, sessionID string,
 	jsonHeader.Set("Content-Disposition", `form-data; name="payload_json"`)
 	jsonHeader.Set("Content-Type", "application/json")
 	jsonPart, _ := writer.CreatePart(jsonHeader)
-	jsonPart.Write(jsonBytes)
+	_, _ = jsonPart.Write(jsonBytes)
 
 	fileHeader := make(textproto.MIMEHeader)
 	fileHeader.Set("Content-Disposition", `form-data; name="files[0]"; filename="snapshot.png"`)
 	fileHeader.Set("Content-Type", "image/png")
 	filePart, _ := writer.CreatePart(fileHeader)
-	filePart.Write(imgBytes)
+	_, _ = filePart.Write(imgBytes)
 
 	writer.Close()
 
@@ -283,7 +283,7 @@ func getPixelBounds(pixels []PixelItem) (minX, minY, maxX, maxY int) {
 	maxX, maxY = -1<<31, -1<<31
 	for _, p := range pixels {
 		var x, y int
-		fmt.Sscanf(strings.TrimPrefix(p.SK, "PIXEL#"), "%d#%d", &x, &y)
+		_, _ = fmt.Sscanf(strings.TrimPrefix(p.SK, "PIXEL#"), "%d#%d", &x, &y)
 		if x < minX {
 			minX = x
 		}
@@ -316,7 +316,9 @@ func getActiveSession(ctx context.Context) (*SessionItem, error) {
 		return nil, err
 	}
 	var session SessionItem
-	attributevalue.UnmarshalMap(result.Items[0], &session)
+	if err := attributevalue.UnmarshalMap(result.Items[0], &session); err != nil {
+		return nil, err
+	}
 	return &session, nil
 }
 
@@ -338,7 +340,9 @@ func getAllPixels(ctx context.Context, sessionID string) ([]PixelItem, error) {
 		}
 
 		var page []PixelItem
-		attributevalue.UnmarshalListOfMaps(result.Items, &page)
+		if err := attributevalue.UnmarshalListOfMaps(result.Items, &page); err != nil {
+			return nil, err
+		}
 		pixels = append(pixels, page...)
 
 		if result.LastEvaluatedKey == nil {
@@ -354,7 +358,7 @@ func patchDiscord(webhookURL, content string) error {
 	body, _ := json.Marshal(map[string]string{"content": content})
 	req, _ := http.NewRequest(http.MethodPatch, webhookURL, bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
-	http.DefaultClient.Do(req)
+	_, _ = http.DefaultClient.Do(req)
 	return nil
 }
 
