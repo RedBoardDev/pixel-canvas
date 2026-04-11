@@ -47,6 +47,13 @@ export async function POST(request: Request): Promise<NextResponse> {
     redirect_uri: env.discordRedirectUri,
   });
 
+  console.log("[auth/callback] Exchanging code with Discord", {
+    client_id: env.discordClientId,
+    redirect_uri: env.discordRedirectUri,
+    grant_type: "authorization_code",
+    code_length: body.code.length,
+  });
+
   const tokenRes = await fetch("https://discord.com/api/v10/oauth2/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -54,7 +61,8 @@ export async function POST(request: Request): Promise<NextResponse> {
   });
 
   if (!tokenRes.ok) {
-    console.error("[auth/callback] Discord token exchange failed:", tokenRes.status);
+    const errorBody = await tokenRes.text();
+    console.error("[auth/callback] Discord token exchange failed:", tokenRes.status, errorBody);
     if (tokenRes.status === 401 || tokenRes.status === 400) {
       return errorResponse(401, "invalid authorization code");
     }
