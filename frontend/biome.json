@@ -9,8 +9,7 @@
   },
 
   "files": {
-    "ignoreUnknown": true,
-    "includes": ["**/*", "!.pnp.cjs", "!.pnp.loader.mjs", "!.yarn/**"]
+    "ignoreUnknown": true
   },
 
   "formatter": {

@@ -1,26 +1,24 @@
 version: 1
-applications:
-  - appRoot: frontend
-    frontend:
-      phases:
-        preBuild:
-          commands:
-            - corepack enable
-            - yarn install --immutable
-        build:
-          commands:
-            # Remap CUSTOM_ prefixed AWS credentials (Amplify blocks AWS_ prefix)
-            - echo "AWS_ACCESS_KEY_ID=$CUSTOM_ACCESS_KEY_ID" >> .env.production
-            - echo "AWS_SECRET_ACCESS_KEY=$CUSTOM_SECRET_ACCESS_KEY" >> .env.production
-            - echo "AWS_REGION=$CUSTOM_AWS_REGION" >> .env.production
-            # Expose server-side env vars to Next.js SSR runtime
-            - env | grep -E "^(DISCORD_CLIENT_SECRET|DISCORD_REDIRECT_URI|SESSIONS_TABLE|CANVAS_PIXELS_TABLE|RATE_LIMITS_TABLE|NEXT_PUBLIC_)" >> .env.production
-            - yarn build
-      artifacts:
-        baseDirectory: .next
-        files:
-          - "**/*"
-      cache:
-        paths:
-          - .yarn/cache/**/*
-          - .next/cache/**/*
+frontend:
+  phases:
+    preBuild:
+      commands:
+        - corepack enable
+        - yarn install --immutable
+    build:
+      commands:
+        # Remap CUSTOM_ prefixed AWS credentials (Amplify blocks AWS_ prefix)
+        - echo "AWS_ACCESS_KEY_ID=$CUSTOM_ACCESS_KEY_ID" >> .env.production
+        - echo "AWS_SECRET_ACCESS_KEY=$CUSTOM_SECRET_ACCESS_KEY" >> .env.production
+        - echo "AWS_REGION=$CUSTOM_AWS_REGION" >> .env.production
+        # Expose server-side env vars to Next.js SSR runtime
+        - env | grep -E "^(DISCORD_CLIENT_SECRET|DISCORD_REDIRECT_URI|SESSIONS_TABLE|CANVAS_PIXELS_TABLE|RATE_LIMITS_TABLE|NEXT_PUBLIC_)" >> .env.production
+        - yarn build
+  artifacts:
+    baseDirectory: .next
+    files:
+      - "**/*"
+  cache:
+    paths:
+      - node_modules/**/*
+      - .next/cache/**/*
