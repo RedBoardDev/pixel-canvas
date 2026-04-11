@@ -1,6 +1,7 @@
-import type { User } from "../../Domain/entities/User.entity";
-import type { AuthProvider } from "../../Domain/repositories/auth-provider.port";
-import type { TokenStorage } from "../../Domain/repositories/token-storage.port";
+import type { User } from "@/applications/Auth/Domain/entities/User.entity";
+import type { AuthProvider } from "@/applications/Auth/Domain/repositories/auth-provider.port";
+import type { TokenStorage } from "@/applications/Auth/Domain/repositories/token-storage.port";
+import { Result } from "@/domain-driven-design";
 
 export class AuthService {
   constructor(
@@ -12,31 +13,34 @@ export class AuthService {
     return this.authProvider.getAuthUrl();
   }
 
-  async login(code: string): Promise<User> {
-    const token = await this.authProvider.exchangeCode(code);
-    this.tokenStorage.setToken(token);
-    return this.authProvider.getUser(token.accessToken);
+  async login(code: string): Promise<Result<User>> {
+    try {
+      const { token, user } = await this.authProvider.exchangeCode(code);
+      this.tokenStorage.setToken(token);
+      return Result.ok(user);
+    } catch (error) {
+      return Result.fail("Login failed", error);
+    }
   }
 
   logout(): void {
     this.tokenStorage.clearToken();
   }
 
-  async getCurrentUser(): Promise<User | null> {
+  async getCurrentUser(): Promise<Result<User | null>> {
     const token = this.tokenStorage.getToken();
-    if (!token) return null;
+    if (!token) return Result.ok(null);
 
     if (token.isExpired()) {
-      try {
-        const newToken = await this.authProvider.refreshToken(token.accessToken);
-        this.tokenStorage.setToken(newToken);
-        return this.authProvider.getUser(newToken.accessToken);
-      } catch {
-        this.tokenStorage.clearToken();
-        return null;
-      }
+      this.tokenStorage.clearToken();
+      return Result.ok(null);
     }
 
-    return this.authProvider.getUser(token.accessToken);
+    try {
+      const user = await this.authProvider.getUser(token.accessToken);
+      return Result.ok(user);
+    } catch (error) {
+      return Result.fail("Failed to fetch user", error);
+    }
   }
 }

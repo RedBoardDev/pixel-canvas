@@ -1,8 +1,8 @@
 "use client";
 
+import { useAuth } from "@/applications/Auth/Api/useAuth";
+import type { User } from "@/applications/Auth/Domain/entities/User.entity";
 import { LogoutIcon } from "@/components/icons";
-import { useAuth } from "../Api/useAuth";
-import type { User } from "../Domain/entities/User.entity";
 
 interface UserMenuProps {
   user: User;

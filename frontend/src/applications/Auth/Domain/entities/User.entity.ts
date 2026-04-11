@@ -1,5 +1,5 @@
+import { UserAvatarUrl } from "@/applications/Auth/Domain/value-objects/UserAvatarUrl.vo";
 import { Entity, Identifier } from "@/domain-driven-design";
-import { UserAvatarUrl } from "../value-objects/UserAvatarUrl.vo";
 
 interface UserProps {
   discordId: string;

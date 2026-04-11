@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useState } from "react";
-import { useAuth } from "../Api/useAuth";
+import { useAuth } from "@/applications/Auth/Api/useAuth";
 import { UserMenu } from "./UserMenu";
 
 export function UserAvatar() {

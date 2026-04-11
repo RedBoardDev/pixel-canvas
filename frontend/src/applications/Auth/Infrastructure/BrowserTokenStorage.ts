@@ -1,5 +1,5 @@
-import type { TokenStorage } from "../Domain/repositories/token-storage.port";
-import { AuthToken } from "../Domain/value-objects/AuthToken.vo";
+import type { TokenStorage } from "@/applications/Auth/Domain/repositories/token-storage.port";
+import { AuthToken } from "@/applications/Auth/Domain/value-objects/AuthToken.vo";
 
 const STORAGE_KEY = "auth_token";
 

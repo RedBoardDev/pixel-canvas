@@ -1,12 +1,13 @@
+import { type UserDto, userMapper } from "@/applications/Auth/Application/mappers/user.mapper";
+import type { User } from "@/applications/Auth/Domain/entities/User.entity";
+import type { AuthProvider } from "@/applications/Auth/Domain/repositories/auth-provider.port";
+import { AuthToken } from "@/applications/Auth/Domain/value-objects/AuthToken.vo";
 import type { ApiClient } from "@/lib/api/apiClient";
-import { type UserDto, userMapper } from "../Application/mappers/user.mapper";
-import type { User } from "../Domain/entities/User.entity";
-import type { AuthProvider } from "../Domain/repositories/auth-provider.port";
-import { AuthToken } from "../Domain/value-objects/AuthToken.vo";
 
-interface TokenResponse {
+interface CallbackResponse {
   access_token: string;
   expires_in: number;
+  user: UserDto;
 }
 
 interface UserResponse extends UserDto {}
@@ -28,9 +29,14 @@ export class DiscordAuthProvider implements AuthProvider {
     return `https://discord.com/oauth2/authorize?${params.toString()}`;
   }
 
-  async exchangeCode(code: string): Promise<AuthToken> {
-    const { data } = await this.api.post<TokenResponse>("/auth/discord/callback", { code });
-    return AuthToken.create(data.access_token, new Date(Date.now() + data.expires_in * 1000));
+  async exchangeCode(code: string): Promise<{ token: AuthToken; user: User }> {
+    const { data } = await this.api.post<CallbackResponse>("/auth/callback", { code });
+    const token = AuthToken.create(
+      data.access_token,
+      new Date(Date.now() + data.expires_in * 1000),
+    );
+    const user = userMapper.toDomain(data.user);
+    return { token, user };
   }
 
   async getUser(token: string): Promise<User> {
@@ -38,10 +44,5 @@ export class DiscordAuthProvider implements AuthProvider {
       headers: { Authorization: `Bearer ${token}` },
     });
     return userMapper.toDomain(data);
-  }
-
-  async refreshToken(token: string): Promise<AuthToken> {
-    const { data } = await this.api.post<TokenResponse>("/auth/refresh", { token });
-    return AuthToken.create(data.access_token, new Date(Date.now() + data.expires_in * 1000));
   }
 }

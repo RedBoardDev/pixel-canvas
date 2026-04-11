@@ -1,7 +1,7 @@
 "use client";
 
+import { useAuth } from "@/applications/Auth/Api/useAuth";
 import { DiscordIcon } from "@/components/icons";
-import { useAuth } from "../Api/useAuth";
 
 interface LoginButtonProps {
   size?: "sm" | "lg";

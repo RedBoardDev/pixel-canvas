@@ -1,4 +1,4 @@
-import { User } from "../../Domain/entities/User.entity";
+import { User } from "@/applications/Auth/Domain/entities/User.entity";
 
 export interface UserDto {
   id: string;
