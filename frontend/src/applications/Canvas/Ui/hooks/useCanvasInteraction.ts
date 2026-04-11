@@ -121,7 +121,12 @@ export function useCanvasInteraction(config: InteractionConfig) {
   }, []);
 
   const centerOnCanvas = useCallback(
-    (containerWidth: number, containerHeight: number, canvasWidth: number, canvasHeight: number) => {
+    (
+      containerWidth: number,
+      containerHeight: number,
+      canvasWidth: number,
+      canvasHeight: number,
+    ) => {
       const canvasPxW = canvasWidth * pixelSize;
       const canvasPxH = canvasHeight * pixelSize;
       const padding = 0.9;

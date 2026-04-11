@@ -18,11 +18,7 @@ export function getCanvasService(): CanvasService {
       ? new WebSocketCanvasGateway(config.wsBaseUrl)
       : new NoopCanvasGateway();
 
-    canvasServiceInstance = new CanvasService(
-      pixelRepo,
-      gateway,
-      config.canvasCooldownMs,
-    );
+    canvasServiceInstance = new CanvasService(pixelRepo, gateway, config.canvasCooldownMs);
   }
   return canvasServiceInstance;
 }

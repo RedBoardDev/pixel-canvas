@@ -47,7 +47,12 @@ export function CanvasGrid({
 
     if (canvasBounds?.isFinite()) {
       initializedRef.current = true;
-      controls.centerOnCanvas(el.clientWidth, el.clientHeight, canvasBounds.width, canvasBounds.height);
+      controls.centerOnCanvas(
+        el.clientWidth,
+        el.clientHeight,
+        canvasBounds.width,
+        canvasBounds.height,
+      );
     } else if (canvasBounds) {
       initializedRef.current = true;
       controls.centerOnContainer(el.clientWidth, el.clientHeight);
@@ -59,14 +64,27 @@ export function CanvasGrid({
   const isEditMode = mode === "edit";
 
   useEffect(() => {
-    render({ pixels, offset, zoom, hoverPos, selectedColor, showEditCursor: isEditMode, canvasBounds });
+    render({
+      pixels,
+      offset,
+      zoom,
+      hoverPos,
+      selectedColor,
+      showEditCursor: isEditMode,
+      canvasBounds,
+    });
   }, [render, pixels, offset, zoom, hoverPos, selectedColor, isEditMode, canvasBounds]);
 
   const onReset = useCallback(() => {
     const el = containerRef.current;
     if (!el) return;
     if (canvasBounds?.isFinite()) {
-      controls.centerOnCanvas(el.clientWidth, el.clientHeight, canvasBounds.width, canvasBounds.height);
+      controls.centerOnCanvas(
+        el.clientWidth,
+        el.clientHeight,
+        canvasBounds.width,
+        canvasBounds.height,
+      );
     } else {
       controls.resetView(el.clientWidth, el.clientHeight);
     }
