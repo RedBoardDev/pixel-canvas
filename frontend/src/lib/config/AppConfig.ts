@@ -4,5 +4,4 @@ export interface AppConfig {
   readonly discordClientId: string;
   readonly discordRedirectUri: string;
   readonly canvasCooldownMs: number;
-  readonly isMockMode: boolean;
 }
