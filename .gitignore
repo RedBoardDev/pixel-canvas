@@ -33,6 +33,12 @@ go.work.sum
 
 # Go binaries
 bootstrap
+back/broadcast
+back/draw
+back/register
+
+# Build artifacts
+back/build/
 
 # Zip archives
 *.zip
@@ -41,3 +47,7 @@ bootstrap
 infra/terraform.tfvars
 infra/terraform.tfstate*
 infra/.build/
+infra/.terraform/
+
+# Claude Code
+frontend/.claude/
