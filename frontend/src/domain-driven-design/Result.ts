@@ -39,11 +39,11 @@ export abstract class Result<T> {
     return new Ok<U>(value);
   }
 
-  public static fail<U>(errorMessage: string, error?: unknown): Result<U> {
+  public static fail<U>(errorMessage: string, error?: unknown, errorCode?: string): Result<U> {
     if (error !== undefined) {
       console.error(error);
     }
-    return new Fail<U>(errorMessage);
+    return new Fail<U>(errorMessage, errorCode);
   }
 
   public static combine(results: Result<unknown>[]): Result<unknown> {
