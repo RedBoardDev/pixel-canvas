@@ -1,49 +1,54 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { useAuth } from "@/applications/Auth/Api/useAuth";
-import { createAppConfig } from "@/lib/config/createAppConfig";
-import { useCanvas } from "../Api/useCanvas";
-import { usePixelPlacement } from "../Api/usePixelPlacement";
+import { useCanvas } from "@/applications/Canvas/Api/useCanvas";
+import { usePixelPlacement } from "@/applications/Canvas/Api/usePixelPlacement";
+import { useSessionState } from "@/applications/Canvas/Api/useSessionState";
+import { PALETTE_COLORS } from "@/applications/Canvas/Domain/constants/canvas.constants";
 import { CanvasGrid } from "./CanvasGrid";
 import { CanvasLoading } from "./CanvasStates";
-import { COLORS, ColorPalette } from "./ColorPalette";
+import { ColorPalette } from "./ColorPalette";
 import { FloatingIsland, PaletteIsland } from "./FloatingToolbar";
 import { useCanvasMode } from "./hooks/useCanvasMode";
 import { ModeToggle } from "./ModeToggle";
-
-const { canvasCooldownMs } = createAppConfig();
+import { SessionBanner } from "./SessionBanner";
 
 export function CanvasContainer() {
-  const { pixels, isLoading, loadChunksForViewport } = useCanvas();
-  const placement = usePixelPlacement();
+  const {
+    status: sessionStatus,
+    isActive: isSessionActive,
+    initializeFromChunk,
+  } = useSessionState();
+  const { pixels, isLoading, loadChunksForViewport, injectPixel } = useCanvas({
+    onSessionInitialized: initializeFromChunk,
+  });
+  const { placePixel, isCooldown } = usePixelPlacement();
   const { isAuthenticated } = useAuth();
-  const [selectedColor, setSelectedColor] = useState(COLORS[0]);
-  const { mode, toggleMode, canToggle } = useCanvasMode({ isAuthenticated });
-
-  const [isCooldown, setIsCooldown] = useState(false);
-
-  useEffect(() => {
-    if (!placement.lastPlacedAt) return setIsCooldown(false);
-    setIsCooldown(true);
-    const remaining = canvasCooldownMs - (Date.now() - placement.lastPlacedAt.getTime());
-    if (remaining <= 0) return setIsCooldown(false);
-    const timer = setTimeout(() => setIsCooldown(false), remaining);
-    return () => clearTimeout(timer);
-  }, [placement.lastPlacedAt]);
+  const [selectedColor, setSelectedColor] = useState<string>(PALETTE_COLORS[0]);
+  const { mode, toggleMode, canToggle } = useCanvasMode({
+    isAuthenticated,
+    isSessionActive,
+  });
 
   const handlePixelClick = useCallback(
     (x: number, y: number) => {
       if (mode !== "edit") return;
-      placement.placePixel(x, y, selectedColor);
+      void placePixel(x, y, selectedColor).then((pixel) => {
+        if (pixel) {
+          injectPixel(pixel.pixel);
+        }
+      });
     },
-    [mode, selectedColor, placement],
+    [mode, selectedColor, placePixel, injectPixel],
   );
 
   if (isLoading) return <CanvasLoading />;
 
   return (
     <div className="absolute inset-0">
+      <SessionBanner status={sessionStatus} />
+
       <CanvasGrid
         pixels={pixels}
         selectedColor={selectedColor}

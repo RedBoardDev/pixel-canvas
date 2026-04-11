@@ -1,23 +1,6 @@
 "use client";
 
-export const COLORS = [
-  "#FF4500",
-  "#FFA800",
-  "#FFD635",
-  "#00A368",
-  "#7EED56",
-  "#2450A4",
-  "#3690EA",
-  "#51E9F4",
-  "#811E9F",
-  "#B44AC0",
-  "#FF99AA",
-  "#9C6926",
-  "#000000",
-  "#898D90",
-  "#D4D7D9",
-  "#FFFFFF",
-];
+import { PALETTE_COLORS } from "@/applications/Canvas/Domain/constants/canvas.constants";
 
 interface ColorPaletteProps {
   selectedColor: string;
@@ -27,7 +10,7 @@ interface ColorPaletteProps {
 export function ColorPalette({ selectedColor, onSelectColor }: ColorPaletteProps) {
   return (
     <div className="grid grid-cols-8 gap-[3px]">
-      {COLORS.map((color) => {
+      {PALETTE_COLORS.map((color) => {
         const isSelected = selectedColor === color;
         return (
           <button

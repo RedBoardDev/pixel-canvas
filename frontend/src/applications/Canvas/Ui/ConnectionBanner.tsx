@@ -1,6 +1,6 @@
 "use client";
 
-import type { ConnectionStatus } from "../Domain/repositories/canvas-gateway.port";
+import type { ConnectionStatus } from "@/applications/Canvas/Domain/repositories/canvas-gateway.port";
 
 interface ConnectionBannerProps {
   status: Exclude<ConnectionStatus, "connected">;

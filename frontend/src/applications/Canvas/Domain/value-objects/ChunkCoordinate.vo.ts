@@ -1,6 +1,7 @@
+import { CHUNK_SIZE } from "@/applications/Canvas/Domain/constants/canvas.constants";
 import { ValueObject } from "@/domain-driven-design";
 
-export const CHUNK_SIZE = 64;
+export { CHUNK_SIZE };
 
 export interface ViewportBounds {
   minX: number;

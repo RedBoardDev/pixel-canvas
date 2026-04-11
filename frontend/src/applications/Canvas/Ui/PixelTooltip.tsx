@@ -1,6 +1,6 @@
 "use client";
 
-import type { Pixel } from "../Domain/entities/Pixel.entity";
+import type { Pixel } from "@/applications/Canvas/Domain/entities/Pixel.entity";
 
 interface PixelTooltipProps {
   pixel: Pixel | null;

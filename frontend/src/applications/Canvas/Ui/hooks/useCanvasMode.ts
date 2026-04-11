@@ -1,23 +1,32 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 export type CanvasMode = "view" | "edit";
 
 interface UseCanvasModeOptions {
   isAuthenticated: boolean;
+  isSessionActive: boolean;
 }
 
-export function useCanvasMode({ isAuthenticated }: UseCanvasModeOptions) {
+export function useCanvasMode({ isAuthenticated, isSessionActive }: UseCanvasModeOptions) {
   const [mode, setMode] = useState<CanvasMode>("view");
 
-  const toggleMode = useCallback(() => {
-    if (!isAuthenticated) return;
-    setMode((prev) => (prev === "view" ? "edit" : "view"));
-  }, [isAuthenticated]);
+  useEffect(() => {
+    if (!isSessionActive) {
+      setMode("view");
+    }
+  }, [isSessionActive]);
 
-  const effectiveMode: CanvasMode = isAuthenticated ? mode : "view";
-  const canToggle = isAuthenticated;
+  const canDraw = isAuthenticated && isSessionActive;
+
+  const toggleMode = useCallback(() => {
+    if (!canDraw) return;
+    setMode((prev) => (prev === "view" ? "edit" : "view"));
+  }, [canDraw]);
+
+  const effectiveMode: CanvasMode = canDraw ? mode : "view";
+  const canToggle = canDraw;
 
   return { mode: effectiveMode, toggleMode, canToggle };
 }

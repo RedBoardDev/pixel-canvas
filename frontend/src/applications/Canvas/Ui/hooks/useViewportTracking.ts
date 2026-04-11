@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import type { ViewportBounds } from "../../Domain/value-objects/ChunkCoordinate.vo";
+import type { ViewportBounds } from "@/applications/Canvas/Domain/value-objects/ChunkCoordinate.vo";
 
 const DEBOUNCE_MS = 100;
 

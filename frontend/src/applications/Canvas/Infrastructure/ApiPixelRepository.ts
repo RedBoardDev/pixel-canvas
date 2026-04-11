@@ -1,26 +1,36 @@
-import type { ApiClient } from "@/lib/api/apiClient";
 import {
   type ChunkResponseDto,
   type PixelDto,
+  type PixelResponseDto,
   pixelMapper,
-} from "../Application/mappers/pixel.mapper";
-import type { Pixel } from "../Domain/entities/Pixel.entity";
-import type { PixelRepository } from "../Domain/repositories/pixel-repository.port";
-import type { Color } from "../Domain/value-objects/Color.vo";
-import type { Coordinate } from "../Domain/value-objects/Coordinate.vo";
+} from "@/applications/Canvas/Application/mappers/pixel.mapper";
+import type { Pixel } from "@/applications/Canvas/Domain/entities/Pixel.entity";
+import type { PixelRepository } from "@/applications/Canvas/Domain/repositories/pixel-repository.port";
+import type { TokenProvider } from "@/applications/Canvas/Domain/repositories/token-provider.port";
+import type {
+  CanvasChunkSnapshot,
+  CanvasPlacedPixelResult,
+} from "@/applications/Canvas/Domain/types/canvas.types";
+import type { Color } from "@/applications/Canvas/Domain/value-objects/Color.vo";
+import type { Coordinate } from "@/applications/Canvas/Domain/value-objects/Coordinate.vo";
+import type { ApiClient } from "@/lib/api/apiClient";
 
 export class ApiPixelRepository implements PixelRepository {
-  constructor(private readonly api: ApiClient) {}
+  constructor(
+    private readonly api: ApiClient,
+    private readonly tokenProvider: TokenProvider,
+  ) {}
 
-  async getChunk(chunkX: number, chunkY: number): Promise<Pixel[]> {
+  async getChunk(chunkX: number, chunkY: number): Promise<CanvasChunkSnapshot> {
     const { data } = await this.api.get<ChunkResponseDto>(
       `/canvas/chunk?cx=${chunkX}&cy=${chunkY}`,
     );
-    return data.pixels.map(pixelMapper.toDomain);
-  }
-
-  async getCanvasState(): Promise<Pixel[]> {
-    return this.getChunk(0, 0);
+    return {
+      sessionId: data.sessionId,
+      canvasVersion: data.canvasVersion,
+      sessionStatus: data.sessionStatus ?? null,
+      pixels: data.pixels.map(pixelMapper.toDomain),
+    };
   }
 
   async getPixelAt(coordinate: Coordinate): Promise<Pixel | null> {
@@ -34,12 +44,27 @@ export class ApiPixelRepository implements PixelRepository {
     }
   }
 
-  async placePixel(coordinate: Coordinate, color: Color): Promise<Pixel> {
-    const { data } = await this.api.post<PixelDto>("/canvas/pixel", {
-      x: coordinate.x,
-      y: coordinate.y,
-      color: color.hex,
-    });
-    return pixelMapper.toDomain(data);
+  async placePixel(coordinate: Coordinate, color: Color): Promise<CanvasPlacedPixelResult> {
+    const accessToken = this.tokenProvider.getAccessToken();
+    const { data } = await this.api.post<PixelResponseDto>(
+      "/canvas/pixel",
+      {
+        x: coordinate.x,
+        y: coordinate.y,
+        color: color.hex,
+      },
+      accessToken
+        ? {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          }
+        : undefined,
+    );
+    return {
+      sessionId: data.sessionId,
+      canvasVersion: data.canvasVersion,
+      pixel: pixelMapper.toDomain(data),
+    };
   }
 }

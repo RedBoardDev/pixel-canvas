@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import type { ViewportBounds } from "../../Domain/value-objects/ChunkCoordinate.vo";
-
-const MIN_ZOOM = 0.5;
-const MAX_ZOOM = 10;
-const DEFAULT_ZOOM = 1;
+import {
+  DEFAULT_ZOOM,
+  MAX_ZOOM,
+  MIN_ZOOM,
+} from "@/applications/Canvas/Domain/constants/canvas.constants";
+import type { ViewportBounds } from "@/applications/Canvas/Domain/value-objects/ChunkCoordinate.vo";
 
 interface InteractionConfig {
   pixelSize: number;

@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
-import type { Pixel } from "../Domain/entities/Pixel.entity";
-import type { ViewportBounds } from "../Domain/value-objects/ChunkCoordinate.vo";
+import type { Pixel } from "@/applications/Canvas/Domain/entities/Pixel.entity";
+import type { ViewportBounds } from "@/applications/Canvas/Domain/value-objects/ChunkCoordinate.vo";
 import { CanvasHUD } from "./CanvasHUD";
 import { useCanvasInteraction } from "./hooks/useCanvasInteraction";
 import type { CanvasMode } from "./hooks/useCanvasMode";

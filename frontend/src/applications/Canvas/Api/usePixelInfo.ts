@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { CanvasServiceProvider } from "../Application/Services/CanvasServiceProvider";
-import type { Pixel } from "../Domain/entities/Pixel.entity";
+import { CanvasServiceProvider } from "@/applications/Canvas/Application/Services/CanvasServiceProvider";
+import type { Pixel } from "@/applications/Canvas/Domain/entities/Pixel.entity";
 
 export function usePixelInfo() {
   const [selectedPixel, setSelectedPixel] = useState<Pixel | null>(null);
@@ -13,14 +13,9 @@ export function usePixelInfo() {
   const selectPixel = useCallback(
     async (x: number, y: number) => {
       setIsLoading(true);
-      try {
-        const pixel = await service.getPixelAt(x, y);
-        setSelectedPixel(pixel);
-      } catch {
-        setSelectedPixel(null);
-      } finally {
-        setIsLoading(false);
-      }
+      const result = await service.getPixelAt(x, y);
+      setSelectedPixel(result.isSuccess ? result.getValue() : null);
+      setIsLoading(false);
     },
     [service],
   );

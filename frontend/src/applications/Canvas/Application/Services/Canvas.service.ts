@@ -1,10 +1,21 @@
-import type { Pixel } from "../../Domain/entities/Pixel.entity";
-import { CooldownNotExpiredError } from "../../Domain/errors/canvas.errors";
-import type { CanvasGateway } from "../../Domain/repositories/canvas-gateway.port";
-import type { PixelRepository } from "../../Domain/repositories/pixel-repository.port";
-import { canPlacePixel } from "../../Domain/rules/placement.rules";
-import { Color } from "../../Domain/value-objects/Color.vo";
-import { Coordinate } from "../../Domain/value-objects/Coordinate.vo";
+import type { Pixel } from "@/applications/Canvas/Domain/entities/Pixel.entity";
+import { CooldownNotExpiredError } from "@/applications/Canvas/Domain/errors/canvas.errors";
+import type {
+  CanvasGateway,
+  ConnectionStatus,
+} from "@/applications/Canvas/Domain/repositories/canvas-gateway.port";
+import type { PixelRepository } from "@/applications/Canvas/Domain/repositories/pixel-repository.port";
+import { canPlacePixel } from "@/applications/Canvas/Domain/rules/placement.rules";
+import type {
+  CanvasChunkSnapshot,
+  CanvasPixelUpdateEvent,
+  CanvasPlacedPixelResult,
+  CanvasResetEvent,
+  SessionStateEvent,
+} from "@/applications/Canvas/Domain/types/canvas.types";
+import { Color } from "@/applications/Canvas/Domain/value-objects/Color.vo";
+import { Coordinate } from "@/applications/Canvas/Domain/value-objects/Coordinate.vo";
+import { Result } from "@/domain-driven-design";
 
 interface PlacePixelParams {
   x: number;
@@ -20,22 +31,40 @@ export class CanvasService {
     private readonly cooldownMs: number,
   ) {}
 
-  async getChunk(cx: number, cy: number): Promise<Pixel[]> {
-    return this.pixelRepo.getChunk(cx, cy);
+  async getChunk(cx: number, cy: number): Promise<Result<CanvasChunkSnapshot>> {
+    try {
+      const snapshot = await this.pixelRepo.getChunk(cx, cy);
+      return Result.ok(snapshot);
+    } catch (error) {
+      return Result.fail("Failed to load chunk", error);
+    }
   }
 
-  async getPixelAt(x: number, y: number): Promise<Pixel | null> {
-    return this.pixelRepo.getPixelAt(Coordinate.create(x, y));
+  async getPixelAt(x: number, y: number): Promise<Result<Pixel | null>> {
+    try {
+      const pixel = await this.pixelRepo.getPixelAt(Coordinate.create(x, y));
+      return Result.ok(pixel);
+    } catch (error) {
+      return Result.fail("Failed to fetch pixel", error);
+    }
   }
 
-  async placePixel(params: PlacePixelParams): Promise<Pixel> {
+  async placePixel(params: PlacePixelParams): Promise<Result<CanvasPlacedPixelResult>> {
     const { allowed, remainingMs } = canPlacePixel(params.lastPlacedAt, this.cooldownMs);
-    if (!allowed) throw new CooldownNotExpiredError(remainingMs);
+    if (!allowed) {
+      const err = new CooldownNotExpiredError(remainingMs);
+      return Result.fail(err.message, undefined, err.code);
+    }
 
-    return this.pixelRepo.placePixel(
-      Coordinate.create(params.x, params.y),
-      Color.create(params.color),
-    );
+    try {
+      const result = await this.pixelRepo.placePixel(
+        Coordinate.create(params.x, params.y),
+        Color.create(params.color),
+      );
+      return Result.ok(result);
+    } catch (error) {
+      return Result.fail("Failed to place pixel", error);
+    }
   }
 
   async connectGateway(): Promise<void> {
@@ -46,17 +75,23 @@ export class CanvasService {
     this.gateway.disconnect();
   }
 
-  onPixelUpdate(callback: (pixel: Pixel) => void): () => void {
+  onPixelUpdate(callback: (event: CanvasPixelUpdateEvent) => void): () => void {
     return this.gateway.onPixelUpdate(callback);
+  }
+
+  onCanvasReset(callback: (event: CanvasResetEvent) => void): () => void {
+    return this.gateway.onCanvasReset(callback);
   }
 
   getGatewayStatus() {
     return this.gateway.getStatus();
   }
 
-  onGatewayStatusChange(
-    callback: (status: "disconnected" | "connecting" | "connected" | "reconnecting") => void,
-  ) {
+  onSessionStateChange(callback: (event: SessionStateEvent) => void): () => void {
+    return this.gateway.onSessionStateChange(callback);
+  }
+
+  onGatewayStatusChange(callback: (status: ConnectionStatus) => void) {
     return this.gateway.onStatusChange(callback);
   }
 }

@@ -1,10 +1,13 @@
-import type { Pixel } from "../entities/Pixel.entity";
-import type { Color } from "../value-objects/Color.vo";
-import type { Coordinate } from "../value-objects/Coordinate.vo";
+import type { Pixel } from "@/applications/Canvas/Domain/entities/Pixel.entity";
+import type {
+  CanvasChunkSnapshot,
+  CanvasPlacedPixelResult,
+} from "@/applications/Canvas/Domain/types/canvas.types";
+import type { Color } from "@/applications/Canvas/Domain/value-objects/Color.vo";
+import type { Coordinate } from "@/applications/Canvas/Domain/value-objects/Coordinate.vo";
 
 export interface PixelRepository {
-  getChunk(chunkX: number, chunkY: number): Promise<Pixel[]>;
-  getCanvasState(): Promise<Pixel[]>;
+  getChunk(chunkX: number, chunkY: number): Promise<CanvasChunkSnapshot>;
   getPixelAt(coordinate: Coordinate): Promise<Pixel | null>;
-  placePixel(coordinate: Coordinate, color: Color): Promise<Pixel>;
+  placePixel(coordinate: Coordinate, color: Color): Promise<CanvasPlacedPixelResult>;
 }

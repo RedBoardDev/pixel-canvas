@@ -1,13 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
-import type { Pixel } from "../../Domain/entities/Pixel.entity";
-
-const PIXEL_SIZE = 10;
-const BG_COLOR = "#08080c";
-const EMPTY_PIXEL_COLOR = "#181830";
-const GRID_COLOR = "rgba(57,255,133,0.06)";
-const HOVER_BORDER = "rgba(57,255,133,0.5)";
+import {
+  BG_COLOR,
+  EMPTY_PIXEL_COLOR,
+  GRID_COLOR,
+  HOVER_BORDER,
+  PIXEL_SIZE,
+} from "@/applications/Canvas/Domain/constants/canvas.constants";
+import type { Pixel } from "@/applications/Canvas/Domain/entities/Pixel.entity";
 
 interface RendererParams {
   pixels: Map<string, Pixel>;

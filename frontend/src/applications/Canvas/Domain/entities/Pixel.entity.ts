@@ -1,6 +1,6 @@
+import type { Color } from "@/applications/Canvas/Domain/value-objects/Color.vo";
+import type { Coordinate } from "@/applications/Canvas/Domain/value-objects/Coordinate.vo";
 import { Entity, Identifier } from "@/domain-driven-design";
-import type { Color } from "../value-objects/Color.vo";
-import type { Coordinate } from "../value-objects/Coordinate.vo";
 
 interface PixelProps {
   coordinate: Coordinate;
