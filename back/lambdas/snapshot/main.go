@@ -94,6 +94,11 @@ func handler(ctx context.Context, outerRequest events.APIGatewayProxyRequest) er
 		return patchDiscord(webhookURL, "Canvas is empty — nothing to snapshot yet.")
 	}
 
+	minX, minY, maxX, maxY := getPixelBounds(pixels)
+	canvasW := maxX - minX + 1
+	canvasH := maxY - minY + 1
+	isLargeCanvas := canvasW > maxImageSize || canvasH > maxImageSize
+
 	imgBytes, width, height, err := renderCanvas(pixels)
 	if err != nil {
 		return patchDiscord(webhookURL, "Failed to render canvas image.")
@@ -126,15 +131,23 @@ func handler(ctx context.Context, outerRequest events.APIGatewayProxyRequest) er
 			"PK": &types.AttributeValueMemberS{Value: fmt.Sprintf("SESSION#%s", session.SessionID)},
 			"SK": &types.AttributeValueMemberS{Value: "METADATA"},
 		},
-		UpdateExpression: aws.String("SET last_snapshot_url = :url, last_snapshot_at = :at, last_snapshot_pixels = :px"),
+		UpdateExpression: aws.String("SET last_snapshot_url = :url, last_snapshot_at = :at, last_snapshot_pixels = :px, last_snapshot_large = :large"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":url": &types.AttributeValueMemberS{Value: presigned.URL},
-			":at":  &types.AttributeValueMemberS{Value: time.Now().UTC().Format(time.RFC3339)},
-			":px":  &types.AttributeValueMemberN{Value: strconv.Itoa(len(pixels))},
+			":url":   &types.AttributeValueMemberS{Value: presigned.URL},
+			":at":    &types.AttributeValueMemberS{Value: time.Now().UTC().Format(time.RFC3339)},
+			":px":    &types.AttributeValueMemberN{Value: strconv.Itoa(len(pixels))},
+			":large": &types.AttributeValueMemberBOOL{Value: isLargeCanvas},
 		},
 	})
 	if err != nil {
 		return patchDiscord(webhookURL, "Failed to save snapshot metadata.")
+	}
+
+	if isLargeCanvas {
+		return patchDiscord(webhookURL, fmt.Sprintf(
+			"**Snapshot — Session `%s`**\n%d pixels | Canvas %dx%d\n\n[Canvas disponible ici](%s)\n\n*Lien valide 24h*",
+			session.SessionID, len(pixels), canvasW, canvasH, presigned.URL,
+		))
 	}
 
 	err = postSnapshotToDiscord(webhookURL, imgBytes, session.SessionID, len(pixels), width, height)
@@ -314,10 +327,9 @@ func getAllPixels(ctx context.Context, sessionID string) ([]PixelItem, error) {
 	for {
 		result, err := db.Query(ctx, &dynamodb.QueryInput{
 			TableName:              aws.String("canvas_pixels"),
-			KeyConditionExpression: aws.String("PK = :pk AND begins_with(SK, :prefix)"),
+			KeyConditionExpression: aws.String("PK = :pk"),
 			ExpressionAttributeValues: map[string]types.AttributeValue{
-				":pk":     &types.AttributeValueMemberS{Value: fmt.Sprintf("SESSION#%s", sessionID)},
-				":prefix": &types.AttributeValueMemberS{Value: "PIXEL#"},
+				":pk": &types.AttributeValueMemberS{Value: fmt.Sprintf("SESSION#%s", sessionID)},
 			},
 			ExclusiveStartKey: lastKey,
 		})
