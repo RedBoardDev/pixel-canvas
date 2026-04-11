@@ -36,3 +36,8 @@ bootstrap
 
 # Zip archives
 *.zip
+
+# Terraform
+infra/terraform.tfvars
+infra/terraform.tfstate*
+infra/.build/
