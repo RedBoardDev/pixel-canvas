@@ -1,14 +1,14 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { CanvasServiceProvider } from "@/applications/Canvas/Application/Services/CanvasServiceProvider";
+import { getCanvasService } from "@/applications/Canvas/Application/Services/CanvasServiceProvider";
 import type { Pixel } from "@/applications/Canvas/Domain/entities/Pixel.entity";
 
 export function usePixelInfo() {
   const [selectedPixel, setSelectedPixel] = useState<Pixel | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const service = CanvasServiceProvider.getService();
+  const service = getCanvasService();
 
   const selectPixel = useCallback(
     async (x: number, y: number) => {

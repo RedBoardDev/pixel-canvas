@@ -88,8 +88,8 @@ export function useCanvasRenderer(
     if (zoom >= 3) {
       const gridMinX = isFiniteBounds ? Math.max(vpMinX, 0) : vpMinX;
       const gridMinY = isFiniteBounds ? Math.max(vpMinY, 0) : vpMinY;
-      const gridMaxX = isFiniteBounds ? Math.min(vpMaxX, canvasBounds!.width) : vpMaxX;
-      const gridMaxY = isFiniteBounds ? Math.min(vpMaxY, canvasBounds!.height) : vpMaxY;
+      const gridMaxX = isFiniteBounds ? Math.min(vpMaxX, canvasBounds?.width ?? vpMaxX) : vpMaxX;
+      const gridMaxY = isFiniteBounds ? Math.min(vpMaxY, canvasBounds?.height ?? vpMaxY) : vpMaxY;
 
       ctx.strokeStyle = GRID_COLOR;
       ctx.lineWidth = 0.5 / zoom;

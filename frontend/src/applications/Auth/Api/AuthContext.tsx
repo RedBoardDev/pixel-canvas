@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
-import { AuthServiceProvider } from "@/applications/Auth/Application/Services/AuthServiceProvider";
+import { getAuthService } from "@/applications/Auth/Application/Services/AuthServiceProvider";
 import type { User } from "@/applications/Auth/Domain/entities/User.entity";
 
 interface AuthContextValue {
@@ -21,7 +21,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const service = useMemo(() => AuthServiceProvider.getService(), []);
+  const service = useMemo(() => getAuthService(), []);
 
   useEffect(() => {
     service.getCurrentUser().then((result) => {

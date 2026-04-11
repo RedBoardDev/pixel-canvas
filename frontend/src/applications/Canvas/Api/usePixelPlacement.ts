@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CanvasServiceProvider } from "@/applications/Canvas/Application/Services/CanvasServiceProvider";
+import { getCanvasService } from "@/applications/Canvas/Application/Services/CanvasServiceProvider";
 import type { CanvasPlacedPixelResult } from "@/applications/Canvas/Domain/types/canvas.types";
 import { createAppConfig } from "@/lib/config/createAppConfig";
 
@@ -13,7 +13,7 @@ export function usePixelPlacement() {
   const [isPlacing, setIsPlacing] = useState(false);
   const [isCooldown, setIsCooldown] = useState(false);
 
-  const service = CanvasServiceProvider.getService();
+  const service = getCanvasService();
 
   useEffect(() => {
     if (!lastPlacedAt) return setIsCooldown(false);

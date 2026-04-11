@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CanvasServiceProvider } from "@/applications/Canvas/Application/Services/CanvasServiceProvider";
+import { getCanvasService } from "@/applications/Canvas/Application/Services/CanvasServiceProvider";
 import { INITIAL_VIEWPORT } from "@/applications/Canvas/Domain/constants/canvas.constants";
 import type { ConnectionStatus } from "@/applications/Canvas/Domain/repositories/canvas-gateway.port";
 import type {
@@ -46,7 +46,7 @@ interface UseCanvasOptions {
 }
 
 export function useCanvas(options: UseCanvasOptions = {}) {
-  const service = CanvasServiceProvider.getService();
+  const service = getCanvasService();
   const { pixels, requestChunks, injectPixel, clear } = useChunkCache(service);
   const [isLoading, setIsLoading] = useState(true);
   const [canvasBounds, setCanvasBounds] = useState<CanvasBounds | null>(null);

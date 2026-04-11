@@ -7,24 +7,22 @@ import { ApiClient } from "@/lib/api/apiClient";
 import { createAppConfig } from "@/lib/config/createAppConfig";
 import { CanvasService } from "./Canvas.service";
 
-export class CanvasServiceProvider {
-  private static instance: CanvasService | null = null;
+let canvasServiceInstance: CanvasService | null = null;
 
-  static getService(): CanvasService {
-    if (!CanvasServiceProvider.instance) {
-      const config = createAppConfig();
-      const tokenProvider = new AuthTokenProvider(new BrowserTokenStorage());
-      const pixelRepo = new ApiPixelRepository(new ApiClient(config.apiBaseUrl), tokenProvider);
-      const gateway = config.wsBaseUrl
-        ? new WebSocketCanvasGateway(config.wsBaseUrl)
-        : new NoopCanvasGateway();
+export function getCanvasService(): CanvasService {
+  if (!canvasServiceInstance) {
+    const config = createAppConfig();
+    const tokenProvider = new AuthTokenProvider(new BrowserTokenStorage());
+    const pixelRepo = new ApiPixelRepository(new ApiClient(config.apiBaseUrl), tokenProvider);
+    const gateway = config.wsBaseUrl
+      ? new WebSocketCanvasGateway(config.wsBaseUrl)
+      : new NoopCanvasGateway();
 
-      CanvasServiceProvider.instance = new CanvasService(
-        pixelRepo,
-        gateway,
-        config.canvasCooldownMs,
-      );
-    }
-    return CanvasServiceProvider.instance;
+    canvasServiceInstance = new CanvasService(
+      pixelRepo,
+      gateway,
+      config.canvasCooldownMs,
+    );
   }
+  return canvasServiceInstance;
 }

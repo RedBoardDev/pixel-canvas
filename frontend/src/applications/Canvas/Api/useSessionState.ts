@@ -1,13 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CanvasServiceProvider } from "@/applications/Canvas/Application/Services/CanvasServiceProvider";
+import { getCanvasService } from "@/applications/Canvas/Application/Services/CanvasServiceProvider";
 import type { SessionStatus } from "@/applications/Canvas/Domain/types/canvas.types";
 
 export type SessionDisplayStatus = SessionStatus | "no_session";
 
 export function useSessionState() {
-  const service = CanvasServiceProvider.getService();
+  const service = getCanvasService();
   const [status, setStatus] = useState<SessionDisplayStatus>("no_session");
   const [sessionId, setSessionId] = useState<string | null>(null);
   const statusRef = useRef(status);
