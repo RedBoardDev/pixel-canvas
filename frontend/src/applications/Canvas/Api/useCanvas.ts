@@ -8,6 +8,7 @@ import type {
   CanvasChunkSnapshot,
   CanvasIdentity,
 } from "@/applications/Canvas/Domain/types/canvas.types";
+import type { CanvasBounds } from "@/applications/Canvas/Domain/value-objects/CanvasBounds.vo";
 import type { ViewportBounds } from "@/applications/Canvas/Domain/value-objects/ChunkCoordinate.vo";
 import { ChunkCoordinate } from "@/applications/Canvas/Domain/value-objects/ChunkCoordinate.vo";
 import { useChunkCache } from "./useChunkCache";
@@ -48,10 +49,12 @@ export function useCanvas(options: UseCanvasOptions = {}) {
   const service = CanvasServiceProvider.getService();
   const { pixels, requestChunks, injectPixel, clear } = useChunkCache(service);
   const [isLoading, setIsLoading] = useState(true);
+  const [canvasBounds, setCanvasBounds] = useState<CanvasBounds | null>(null);
   const visibleChunkKeysRef = useRef<string[]>([]);
   const currentIdentityRef = useRef<CanvasIdentityState>(EMPTY_IDENTITY);
   const lastGatewayStatusRef = useRef<ConnectionStatus>(service.getGatewayStatus());
   const sessionInitializedRef = useRef(false);
+  const canvasBoundsRef = useRef<CanvasBounds | null>(null);
   const optionsRef = useRef(options);
   optionsRef.current = options;
 
@@ -81,6 +84,8 @@ export function useCanvas(options: UseCanvasOptions = {}) {
         if (!sessionInitializedRef.current) {
           sessionInitializedRef.current = true;
           const firstSnapshot = result.snapshots[0];
+          canvasBoundsRef.current = firstSnapshot.canvasBounds;
+          setCanvasBounds(firstSnapshot.canvasBounds);
           optionsRef.current.onSessionInitialized?.(
             firstSnapshot.sessionId,
             firstSnapshot.sessionStatus,
@@ -166,12 +171,12 @@ export function useCanvas(options: UseCanvasOptions = {}) {
 
   const loadChunksForViewport = useCallback(
     (viewport: ViewportBounds) => {
-      const chunkKeys = ChunkCoordinate.getVisibleChunkKeys(viewport);
+      const chunkKeys = ChunkCoordinate.getVisibleChunkKeys(viewport, 1, canvasBoundsRef.current);
       visibleChunkKeysRef.current = chunkKeys;
       void loadChunks(chunkKeys);
     },
     [loadChunks],
   );
 
-  return { pixels, isLoading, loadChunksForViewport, injectPixel };
+  return { pixels, isLoading, canvasBounds, loadChunksForViewport, injectPixel };
 }

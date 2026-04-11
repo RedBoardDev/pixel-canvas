@@ -3,12 +3,14 @@
 import { useCallback, useEffect, useRef } from "react";
 import {
   BG_COLOR,
+  CANVAS_BORDER_COLOR,
   EMPTY_PIXEL_COLOR,
   GRID_COLOR,
   HOVER_BORDER,
   PIXEL_SIZE,
 } from "@/applications/Canvas/Domain/constants/canvas.constants";
 import type { Pixel } from "@/applications/Canvas/Domain/entities/Pixel.entity";
+import type { CanvasBounds } from "@/applications/Canvas/Domain/value-objects/CanvasBounds.vo";
 
 interface RendererParams {
   pixels: Map<string, Pixel>;
@@ -17,6 +19,7 @@ interface RendererParams {
   hoverPos: { x: number; y: number } | null;
   selectedColor: string;
   showEditCursor: boolean;
+  canvasBounds: CanvasBounds | null;
 }
 
 export function useCanvasRenderer(
@@ -33,10 +36,11 @@ export function useCanvasRenderer(
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const { pixels, offset, zoom, hoverPos, selectedColor, showEditCursor } = params;
+    const { pixels, offset, zoom, hoverPos, selectedColor, showEditCursor, canvasBounds } = params;
     const dpr = window.devicePixelRatio || 1;
     const w = canvas.width / dpr;
     const h = canvas.height / dpr;
+    const isFiniteBounds = canvasBounds?.isFinite() ?? false;
 
     ctx.save();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -54,14 +58,20 @@ export function useCanvasRenderer(
     const vpMaxX = Math.ceil((-offset.x + w) / (PIXEL_SIZE * zoom)) + 1;
     const vpMaxY = Math.ceil((-offset.y + h) / (PIXEL_SIZE * zoom)) + 1;
 
-    // Infinite empty background for visible area
-    ctx.fillStyle = EMPTY_PIXEL_COLOR;
-    ctx.fillRect(
-      vpMinX * PIXEL_SIZE,
-      vpMinY * PIXEL_SIZE,
-      (vpMaxX - vpMinX) * PIXEL_SIZE,
-      (vpMaxY - vpMinY) * PIXEL_SIZE,
-    );
+    if (isFiniteBounds && canvasBounds) {
+      // Finite canvas: draw only the canvas area with the empty pixel color
+      ctx.fillStyle = EMPTY_PIXEL_COLOR;
+      ctx.fillRect(0, 0, canvasBounds.width * PIXEL_SIZE, canvasBounds.height * PIXEL_SIZE);
+    } else {
+      // Infinite canvas: fill entire visible area
+      ctx.fillStyle = EMPTY_PIXEL_COLOR;
+      ctx.fillRect(
+        vpMinX * PIXEL_SIZE,
+        vpMinY * PIXEL_SIZE,
+        (vpMaxX - vpMinX) * PIXEL_SIZE,
+        (vpMaxY - vpMinY) * PIXEL_SIZE,
+      );
+    }
 
     // Draw pixels
     for (const [, pixel] of pixels) {
@@ -74,33 +84,48 @@ export function useCanvasRenderer(
       );
     }
 
-    // Grid lines (only when zoomed in, dynamic range)
+    // Grid lines (only when zoomed in)
     if (zoom >= 3) {
+      const gridMinX = isFiniteBounds ? Math.max(vpMinX, 0) : vpMinX;
+      const gridMinY = isFiniteBounds ? Math.max(vpMinY, 0) : vpMinY;
+      const gridMaxX = isFiniteBounds ? Math.min(vpMaxX, canvasBounds!.width) : vpMaxX;
+      const gridMaxY = isFiniteBounds ? Math.min(vpMaxY, canvasBounds!.height) : vpMaxY;
+
       ctx.strokeStyle = GRID_COLOR;
       ctx.lineWidth = 0.5 / zoom;
-      for (let x = vpMinX; x <= vpMaxX; x++) {
+      for (let x = gridMinX; x <= gridMaxX; x++) {
         ctx.beginPath();
-        ctx.moveTo(x * PIXEL_SIZE, vpMinY * PIXEL_SIZE);
-        ctx.lineTo(x * PIXEL_SIZE, vpMaxY * PIXEL_SIZE);
+        ctx.moveTo(x * PIXEL_SIZE, gridMinY * PIXEL_SIZE);
+        ctx.lineTo(x * PIXEL_SIZE, gridMaxY * PIXEL_SIZE);
         ctx.stroke();
       }
-      for (let y = vpMinY; y <= vpMaxY; y++) {
+      for (let y = gridMinY; y <= gridMaxY; y++) {
         ctx.beginPath();
-        ctx.moveTo(vpMinX * PIXEL_SIZE, y * PIXEL_SIZE);
-        ctx.lineTo(vpMaxX * PIXEL_SIZE, y * PIXEL_SIZE);
+        ctx.moveTo(gridMinX * PIXEL_SIZE, y * PIXEL_SIZE);
+        ctx.lineTo(gridMaxX * PIXEL_SIZE, y * PIXEL_SIZE);
         ctx.stroke();
       }
     }
 
-    // Hover highlight (edit mode only)
-    if (hoverPos && showEditCursor) {
-      ctx.fillStyle = selectedColor;
-      ctx.globalAlpha = 0.4;
-      ctx.fillRect(hoverPos.x * PIXEL_SIZE, hoverPos.y * PIXEL_SIZE, PIXEL_SIZE, PIXEL_SIZE);
-      ctx.globalAlpha = 1;
-      ctx.strokeStyle = HOVER_BORDER;
+    // Canvas border (finite only)
+    if (isFiniteBounds && canvasBounds) {
+      ctx.strokeStyle = CANVAS_BORDER_COLOR;
       ctx.lineWidth = 2 / zoom;
-      ctx.strokeRect(hoverPos.x * PIXEL_SIZE, hoverPos.y * PIXEL_SIZE, PIXEL_SIZE, PIXEL_SIZE);
+      ctx.strokeRect(0, 0, canvasBounds.width * PIXEL_SIZE, canvasBounds.height * PIXEL_SIZE);
+    }
+
+    // Hover highlight (edit mode only, within bounds)
+    if (hoverPos && showEditCursor) {
+      const withinBounds = !canvasBounds || canvasBounds.containsPixel(hoverPos.x, hoverPos.y);
+      if (withinBounds) {
+        ctx.fillStyle = selectedColor;
+        ctx.globalAlpha = 0.4;
+        ctx.fillRect(hoverPos.x * PIXEL_SIZE, hoverPos.y * PIXEL_SIZE, PIXEL_SIZE, PIXEL_SIZE);
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = HOVER_BORDER;
+        ctx.lineWidth = 2 / zoom;
+        ctx.strokeRect(hoverPos.x * PIXEL_SIZE, hoverPos.y * PIXEL_SIZE, PIXEL_SIZE, PIXEL_SIZE);
+      }
     }
 
     ctx.restore();

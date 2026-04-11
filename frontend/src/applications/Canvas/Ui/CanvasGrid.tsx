@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import type { Pixel } from "@/applications/Canvas/Domain/entities/Pixel.entity";
+import type { CanvasBounds } from "@/applications/Canvas/Domain/value-objects/CanvasBounds.vo";
 import type { ViewportBounds } from "@/applications/Canvas/Domain/value-objects/ChunkCoordinate.vo";
 import { CanvasHUD } from "./CanvasHUD";
 import { useCanvasInteraction } from "./hooks/useCanvasInteraction";
@@ -15,6 +16,7 @@ interface CanvasGridProps {
   selectedColor: string;
   mode: CanvasMode;
   isCooldown: boolean;
+  canvasBounds: CanvasBounds | null;
   onPixelClick: (x: number, y: number) => void;
   onViewportChange: (bounds: ViewportBounds) => void;
 }
@@ -24,6 +26,7 @@ export function CanvasGrid({
   selectedColor,
   mode,
   isCooldown,
+  canvasBounds,
   onPixelClick,
   onViewportChange,
 }: CanvasGridProps) {
@@ -39,23 +42,35 @@ export function CanvasGrid({
   const initializedRef = useRef(false);
   useEffect(() => {
     if (initializedRef.current) return;
-    initializedRef.current = true;
     const el = containerRef.current;
-    if (el) controls.centerOnContainer(el.clientWidth, el.clientHeight);
-  }, [controls]);
+    if (!el) return;
+
+    if (canvasBounds?.isFinite()) {
+      initializedRef.current = true;
+      controls.centerOnCanvas(el.clientWidth, el.clientHeight, canvasBounds.width, canvasBounds.height);
+    } else if (canvasBounds) {
+      initializedRef.current = true;
+      controls.centerOnContainer(el.clientWidth, el.clientHeight);
+    }
+  }, [controls, canvasBounds]);
 
   useViewportTracking(getViewportBounds, onViewportChange);
 
   const isEditMode = mode === "edit";
 
   useEffect(() => {
-    render({ pixels, offset, zoom, hoverPos, selectedColor, showEditCursor: isEditMode });
-  }, [render, pixels, offset, zoom, hoverPos, selectedColor, isEditMode]);
+    render({ pixels, offset, zoom, hoverPos, selectedColor, showEditCursor: isEditMode, canvasBounds });
+  }, [render, pixels, offset, zoom, hoverPos, selectedColor, isEditMode, canvasBounds]);
 
   const onReset = useCallback(() => {
     const el = containerRef.current;
-    if (el) controls.resetView(el.clientWidth, el.clientHeight);
-  }, [controls]);
+    if (!el) return;
+    if (canvasBounds?.isFinite()) {
+      controls.centerOnCanvas(el.clientWidth, el.clientHeight, canvasBounds.width, canvasBounds.height);
+    } else {
+      controls.resetView(el.clientWidth, el.clientHeight);
+    }
+  }, [controls, canvasBounds]);
 
   const hoveredPixel =
     !isEditMode && hoverPos ? (pixels.get(`${hoverPos.x},${hoverPos.y}`) ?? null) : null;

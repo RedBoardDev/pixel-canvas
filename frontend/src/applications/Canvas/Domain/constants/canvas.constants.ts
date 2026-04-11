@@ -18,6 +18,8 @@ export const PIXEL_SIZE = 10;
 export const BG_COLOR = "#08080c";
 export const EMPTY_PIXEL_COLOR = "#181830";
 export const GRID_COLOR = "rgba(57,255,133,0.06)";
+export const OUT_OF_BOUNDS_COLOR = "#08080c";
+export const CANVAS_BORDER_COLOR = "rgba(255, 255, 255, 0.12)";
 export const HOVER_BORDER = "rgba(57,255,133,0.5)";
 
 // Default viewport

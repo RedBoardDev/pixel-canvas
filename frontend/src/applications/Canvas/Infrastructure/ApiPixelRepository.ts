@@ -11,6 +11,7 @@ import type {
   CanvasChunkSnapshot,
   CanvasPlacedPixelResult,
 } from "@/applications/Canvas/Domain/types/canvas.types";
+import { CanvasBounds } from "@/applications/Canvas/Domain/value-objects/CanvasBounds.vo";
 import type { Color } from "@/applications/Canvas/Domain/value-objects/Color.vo";
 import type { Coordinate } from "@/applications/Canvas/Domain/value-objects/Coordinate.vo";
 import type { ApiClient } from "@/lib/api/apiClient";
@@ -29,6 +30,7 @@ export class ApiPixelRepository implements PixelRepository {
       sessionId: data.sessionId,
       canvasVersion: data.canvasVersion,
       sessionStatus: data.sessionStatus ?? null,
+      canvasBounds: CanvasBounds.fromRaw(data.canvasWidth, data.canvasHeight),
       pixels: data.pixels.map(pixelMapper.toDomain),
     };
   }

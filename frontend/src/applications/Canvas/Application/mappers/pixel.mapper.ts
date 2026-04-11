@@ -20,6 +20,8 @@ export interface ChunkResponseDto {
   sessionId: string | null;
   canvasVersion: number | null;
   sessionStatus: "active" | null;
+  canvasWidth: number;
+  canvasHeight: number;
   chunkX: number;
   chunkY: number;
   pixels: PixelDto[];

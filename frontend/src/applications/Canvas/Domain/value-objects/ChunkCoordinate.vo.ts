@@ -1,4 +1,5 @@
 import { CHUNK_SIZE } from "@/applications/Canvas/Domain/constants/canvas.constants";
+import type { CanvasBounds } from "@/applications/Canvas/Domain/value-objects/CanvasBounds.vo";
 import { ValueObject } from "@/domain-driven-design";
 
 export { CHUNK_SIZE };
@@ -31,7 +32,11 @@ export class ChunkCoordinate extends ValueObject<ChunkCoordinateProps> {
     });
   }
 
-  static getVisibleChunkKeys(viewport: ViewportBounds, padding = 1): string[] {
+  static getVisibleChunkKeys(
+    viewport: ViewportBounds,
+    padding = 1,
+    bounds?: CanvasBounds | null,
+  ): string[] {
     const minCx = Math.floor(viewport.minX / CHUNK_SIZE) - padding;
     const minCy = Math.floor(viewport.minY / CHUNK_SIZE) - padding;
     const maxCx = Math.floor(viewport.maxX / CHUNK_SIZE) + padding;
@@ -40,6 +45,9 @@ export class ChunkCoordinate extends ValueObject<ChunkCoordinateProps> {
     const keys: string[] = [];
     for (let cx = minCx; cx <= maxCx; cx++) {
       for (let cy = minCy; cy <= maxCy; cy++) {
+        if (bounds?.isFinite() && !bounds.containsChunk(cx, cy)) {
+          continue;
+        }
         keys.push(`${cx},${cy}`);
       }
     }

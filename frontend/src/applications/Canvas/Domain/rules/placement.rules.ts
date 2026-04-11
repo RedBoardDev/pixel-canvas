@@ -1,3 +1,5 @@
+import type { CanvasBounds } from "@/applications/Canvas/Domain/value-objects/CanvasBounds.vo";
+
 interface CooldownResult {
   allowed: boolean;
   remainingMs: number;
@@ -14,4 +16,8 @@ export function canPlacePixel(
   const elapsed = now.getTime() - lastPlacedAt.getTime();
   const remaining = Math.max(0, cooldownMs - elapsed);
   return { allowed: remaining === 0, remainingMs: remaining };
+}
+
+export function isWithinBounds(x: number, y: number, bounds: CanvasBounds): boolean {
+  return bounds.containsPixel(x, y);
 }

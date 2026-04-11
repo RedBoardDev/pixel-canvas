@@ -11,6 +11,8 @@ export interface SessionItem {
   last_snapshot_url?: string;
   last_snapshot_at?: string;
   last_snapshot_pixels?: number;
+  canvas_width?: number;
+  canvas_height?: number;
 }
 
 export interface PixelItem {

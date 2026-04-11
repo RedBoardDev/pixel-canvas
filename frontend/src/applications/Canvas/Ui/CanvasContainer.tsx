@@ -20,7 +20,7 @@ export function CanvasContainer() {
     isActive: isSessionActive,
     initializeFromChunk,
   } = useSessionState();
-  const { pixels, isLoading, loadChunksForViewport, injectPixel } = useCanvas({
+  const { pixels, isLoading, canvasBounds, loadChunksForViewport, injectPixel } = useCanvas({
     onSessionInitialized: initializeFromChunk,
   });
   const { placePixel, isCooldown } = usePixelPlacement();
@@ -34,13 +34,14 @@ export function CanvasContainer() {
   const handlePixelClick = useCallback(
     (x: number, y: number) => {
       if (mode !== "edit") return;
+      if (canvasBounds && !canvasBounds.containsPixel(x, y)) return;
       void placePixel(x, y, selectedColor).then((pixel) => {
         if (pixel) {
           injectPixel(pixel.pixel);
         }
       });
     },
-    [mode, selectedColor, placePixel, injectPixel],
+    [mode, selectedColor, placePixel, injectPixel, canvasBounds],
   );
 
   if (isLoading) return <CanvasLoading />;
@@ -54,6 +55,7 @@ export function CanvasContainer() {
         selectedColor={selectedColor}
         mode={mode}
         isCooldown={isCooldown}
+        canvasBounds={canvasBounds}
         onPixelClick={handlePixelClick}
         onViewportChange={loadChunksForViewport}
       />

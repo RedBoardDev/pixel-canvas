@@ -120,12 +120,32 @@ export function useCanvasInteraction(config: InteractionConfig) {
     setOffset({ x: containerWidth / 2, y: containerHeight / 2 });
   }, []);
 
+  const centerOnCanvas = useCallback(
+    (containerWidth: number, containerHeight: number, canvasWidth: number, canvasHeight: number) => {
+      const canvasPxW = canvasWidth * pixelSize;
+      const canvasPxH = canvasHeight * pixelSize;
+      const padding = 0.9;
+      const fitZoom = Math.min(
+        (containerWidth * padding) / canvasPxW,
+        (containerHeight * padding) / canvasPxH,
+        MAX_ZOOM,
+      );
+      const clampedZoom = Math.max(fitZoom, MIN_ZOOM);
+      setZoom(clampedZoom);
+      setOffset({
+        x: (containerWidth - canvasPxW * clampedZoom) / 2,
+        y: (containerHeight - canvasPxH * clampedZoom) / 2,
+      });
+    },
+    [pixelSize],
+  );
+
   return {
     offset,
     zoom,
     hoverPos,
     getViewportBounds,
     handlers: { handleMouseDown, handleMouseMove, handleMouseUp, handleMouseLeave, handleWheel },
-    controls: { zoomIn, zoomOut, resetView, centerOnContainer },
+    controls: { zoomIn, zoomOut, resetView, centerOnContainer, centerOnCanvas },
   };
 }

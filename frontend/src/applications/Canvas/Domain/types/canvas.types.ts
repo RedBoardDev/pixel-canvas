@@ -1,4 +1,5 @@
 import type { Pixel } from "@/applications/Canvas/Domain/entities/Pixel.entity";
+import type { CanvasBounds } from "@/applications/Canvas/Domain/value-objects/CanvasBounds.vo";
 
 export type SessionStatus = "active" | "paused";
 
@@ -11,6 +12,7 @@ export interface CanvasChunkSnapshot {
   sessionId: string | null;
   canvasVersion: number | null;
   sessionStatus: "active" | null;
+  canvasBounds: CanvasBounds;
   pixels: Pixel[];
 }
 
