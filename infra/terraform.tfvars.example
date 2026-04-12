@@ -1,0 +1,29 @@
+# Copy this file to terraform.tfvars and fill in the values.
+# terraform.tfvars is gitignored — NEVER commit secrets.
+
+aws_region   = "eu-west-3"
+project_name = "pixel-canvas"
+
+# Discord credentials (from Discord Developer Portal)
+discord_app_id        = ""
+discord_public_key    = ""
+discord_bot_token     = ""
+discord_client_id     = ""
+discord_client_secret = ""
+
+# GitHub personal access token (needs repo scope, for Amplify)
+github_access_token   = ""
+github_repository_url = "https://github.com/RedBoardDev/pixel-canvas"
+
+# Frontend domain (set after first Amplify deploy, e.g. main.d337xxx.amplifyapp.com)
+frontend_domain = ""
+
+# API Gateway stages
+http_stage = "prod"
+ws_stage   = "prod"
+
+# DynamoDB table names (defaults match existing deployment)
+# sessions_table_name      = "sessions"
+# canvas_pixels_table_name = "canvas_pixels"
+# rate_limits_table_name   = "rate_limits"
+# ws_connections_table_name = "ws_connections"

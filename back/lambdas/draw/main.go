@@ -30,16 +30,22 @@ const (
 
 var db *dynamodb.Client
 var colorPalette = map[string]string{
+	"#FF4500": "Red-Orange",
+	"#FFA800": "Orange",
+	"#FFD635": "Yellow",
+	"#00A368": "Green",
+	"#7EED56": "Light Green",
+	"#2450A4": "Dark Blue",
+	"#3690EA": "Blue",
+	"#51E9F4": "Cyan",
+	"#811E9F": "Purple",
+	"#B44AC0": "Lavender",
+	"#FF99AA": "Pink",
+	"#9C6926": "Brown",
 	"#000000": "Black",
+	"#898D90": "Grey",
+	"#D4D7D9": "Light Grey",
 	"#FFFFFF": "White",
-	"#FF0000": "Red",
-	"#00FF00": "Green",
-	"#0000FF": "Blue",
-	"#FFFF00": "Yellow",
-	"#FF00FF": "Magenta",
-	"#00FFFF": "Cyan",
-	"#FFA500": "Orange",
-	"#800080": "Purple",
 }
 
 type SessionItem struct {
@@ -158,7 +164,9 @@ func getActiveSession(ctx context.Context) (*SessionItem, error) {
         return nil, err
     }
     var session SessionItem
-    attributevalue.UnmarshalMap(result.Items[0], &session)
+    if err := attributevalue.UnmarshalMap(result.Items[0], &session); err != nil {
+        return nil, err
+    }
     return &session, nil
 }
 
@@ -199,7 +207,7 @@ func checkRateLimit(ctx context.Context, userID, sessionID string) (allowed bool
 		return false, currentCount, nil
 	}
 
-	db.PutItem(ctx, &dynamodb.PutItemInput{
+	_, _ = db.PutItem(ctx, &dynamodb.PutItemInput{
 		TableName: aws.String(rateLimitTable),
 		Item: map[string]types.AttributeValue{
 			"PK":           &types.AttributeValueMemberS{Value: pk},
@@ -225,7 +233,7 @@ func patchDiscord(webhookURL, content string) error {
 	body, _ := json.Marshal(map[string]string{"content": content})
 	req, _ := http.NewRequest(http.MethodPatch, webhookURL, bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
-	http.DefaultClient.Do(req)
+	_, _ = http.DefaultClient.Do(req)
 	return nil
 }
 

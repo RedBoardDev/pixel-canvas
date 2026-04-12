@@ -1,0 +1,60 @@
+name: Backend CI
+
+on:
+  push:
+    paths:
+      - "back/**"
+      - "infra/scripts/build-lambdas.sh"
+      - ".github/workflows/ci-backend.yml"
+  pull_request:
+    paths:
+      - "back/**"
+      - "infra/scripts/build-lambdas.sh"
+      - ".github/workflows/ci-backend.yml"
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: back
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: back/go.mod
+          cache-dependency-path: back/go.sum
+
+      - name: Go vet
+        run: go vet ./...
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          install-mode: goinstall
+          working-directory: back
+
+  build:
+    name: Build Lambdas
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: back/go.mod
+          cache-dependency-path: back/go.sum
+
+      - name: Build all lambdas (linux/arm64)
+        run: bash infra/scripts/build-lambdas.sh
+
+      - name: Verify all binaries exist
+        run: |
+          for lambda in main draw canvas session snapshot ws-connect ws-disconnect broadcast; do
+            test -f "infra/.build/$lambda/bootstrap" || { echo "Missing: $lambda"; exit 1; }
+          done
+          echo "All 8 lambda binaries built successfully."

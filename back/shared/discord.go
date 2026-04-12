@@ -54,6 +54,6 @@ type InteractionResponseData struct {
 
 func IsAdmin(permissions string) bool {
 	var perms int64
-	fmt.Sscanf(permissions, "%d", &perms)
+	_, _ = fmt.Sscanf(permissions, "%d", &perms)
 	return perms&0x8 != 0
 }
