@@ -9,17 +9,17 @@ import (
 )
 
 type CommandChoice struct {
-    Name  string `json:"name"`
-    Value string `json:"value"`
+	Name  string `json:"name"`
+	Value string `json:"value"`
 }
 
 type CommandOption struct {
-    Type        int             `json:"type"`
-    Name        string          `json:"name"`
-    Description string          `json:"description"`
-    Required    bool            `json:"required"`
-    Choices     []CommandChoice `json:"choices,omitempty"`
-	Options        []CommandOption  `json:"options,omitempty"`
+	Type        int             `json:"type"`
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	Required    bool            `json:"required"`
+	Choices     []CommandChoice `json:"choices,omitempty"`
+	Options     []CommandOption `json:"options,omitempty"`
 }
 
 type Command struct {
@@ -28,8 +28,6 @@ type Command struct {
 	Options     []CommandOption `json:"options,omitempty"`
 }
 
-
-// Discord option types
 const (
 	OptionTypeSubCommand = 1
 	OptionTypeString     = 3
@@ -58,16 +56,16 @@ func main() {
 					Description: "Choose a color",
 					Required:    true,
 					Choices: []CommandChoice{
-						{Name: "Noir",   Value: "#000000"},
-						{Name: "Blanc",  Value: "#FFFFFF"},
-						{Name: "Rouge",  Value: "#FF0000"},
-						{Name: "Vert",   Value: "#00FF00"},
-						{Name: "Bleu",   Value: "#0000FF"},
-						{Name: "Jaune",  Value: "#FFFF00"},
+						{Name: "Black",   Value: "#000000"},
+						{Name: "White",  Value: "#FFFFFF"},
+						{Name: "Red",  Value: "#FF0000"},
+						{Name: "Gren",   Value: "#00FF00"},
+						{Name: "Blue",   Value: "#0000FF"},
+						{Name: "Yellow",  Value: "#FFFF00"},
 						{Name: "Magenta", Value: "#FF00FF"},
-						{Name: "Cyan",   Value: "#00FFFF"},
-						{Name: "Orange", Value: "#FFA500"},
-						{Name: "Violet", Value: "#800080"},
+						{Name: "Cyan",    Value: "#00FFFF"},
+						{Name: "Orange",  Value: "#FFA500"},
+						{Name: "Purple",  Value: "#800080"},
 					},
 				},
 			},
@@ -91,8 +89,14 @@ func main() {
 					Options: []CommandOption{
 						{
 							Type:        OptionTypeString,
-							Name:        "size",
-							Description: "Canvas size (ex: 100x100) or 'infinite'. Required for new sessions.",
+							Name:        "width",
+							Description: "Canvas width in pixels (e.g. 100) or 'infinite'.",
+							Required:    false,
+						},
+						{
+							Type:        OptionTypeString,
+							Name:        "height",
+							Description: "Canvas height in pixels (e.g. 100) or 'infinite'.",
 							Required:    false,
 						},
 					},

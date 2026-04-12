@@ -56,12 +56,15 @@ type PixelItem struct {
 }
 
 type SessionItem struct {
-	PK        string `dynamodbav:"PK"`
-	SK        string `dynamodbav:"SK"`
-	Status    string `dynamodbav:"status"`
-	SessionID string `dynamodbav:"session_id"`
-	CreatedBy string `dynamodbav:"created_by"`
-	CreatedAt string `dynamodbav:"created_at"`
+	PK           string `dynamodbav:"PK"`
+	SK           string `dynamodbav:"SK"`
+	Status       string `dynamodbav:"status"`
+	SessionID    string `dynamodbav:"session_id"`
+	CreatedBy    string `dynamodbav:"created_by"`
+	CreatedAt    string `dynamodbav:"created_at"`
+	CanvasSize   string `dynamodbav:"canvas_size"`
+	CanvasWidth  int    `dynamodbav:"canvas_width"`
+	CanvasHeight int    `dynamodbav:"canvas_height"`
 }
 
 func handler(ctx context.Context, outerRequest events.APIGatewayProxyRequest) error {
@@ -97,7 +100,13 @@ func handler(ctx context.Context, outerRequest events.APIGatewayProxyRequest) er
 	minX, minY, maxX, maxY := getPixelBounds(pixels)
 	canvasW := maxX - minX + 1
 	canvasH := maxY - minY + 1
-	isLargeCanvas := canvasW > maxImageSize || canvasH > maxImageSize
+
+	var isLargeCanvas bool
+	if session.CanvasWidth > 0 && session.CanvasHeight > 0 {
+		isLargeCanvas = session.CanvasWidth > maxImageSize || session.CanvasHeight > maxImageSize
+	} else {
+		isLargeCanvas = canvasW > maxImageSize || canvasH > maxImageSize
+	}
 
 	imgBytes, width, height, err := renderCanvas(pixels)
 	if err != nil {
