@@ -213,15 +213,16 @@ func handleStart(ctx context.Context, webhookURL, userID, widthRaw, heightRaw st
 			":now":    &types.AttributeValueMemberS{Value: time.Now().UTC().Format(time.RFC3339)},
 			":cs":     &types.AttributeValueMemberS{Value: sizeLabel},
 		}
-		if size.Infinite {
+		switch {
+		case size.Infinite:
 			updateExpr += " REMOVE canvas_width, canvas_height"
-		} else if size.WidthInfinite {
+		case size.WidthInfinite:
 			updateExpr += ", canvas_height = :ch REMOVE canvas_width"
 			exprValues[":ch"] = &types.AttributeValueMemberN{Value: strconv.Itoa(size.Height)}
-		} else if size.HeightInfinite {
+		case size.HeightInfinite:
 			updateExpr += ", canvas_width = :cw REMOVE canvas_height"
 			exprValues[":cw"] = &types.AttributeValueMemberN{Value: strconv.Itoa(size.Width)}
-		} else {
+		default:
 			updateExpr += ", canvas_width = :cw, canvas_height = :ch"
 			exprValues[":cw"] = &types.AttributeValueMemberN{Value: strconv.Itoa(size.Width)}
 			exprValues[":ch"] = &types.AttributeValueMemberN{Value: strconv.Itoa(size.Height)}
@@ -265,13 +266,15 @@ func handleStart(ctx context.Context, webhookURL, userID, widthRaw, heightRaw st
 		"canvas_size": &types.AttributeValueMemberS{Value: sizeLabel},
 	}
 
-	if size.Infinite {
-	} else if size.WidthInfinite {
+	switch {
+	case size.Infinite:
+		// no canvas size attributes
+	case size.WidthInfinite:
 		item["canvas_height"] = &types.AttributeValueMemberN{Value: strconv.Itoa(size.Height)}
-	} else if size.HeightInfinite {
+	case size.HeightInfinite:
 		item["canvas_width"] = &types.AttributeValueMemberN{Value: strconv.Itoa(size.Width)}
-	} else {
-		item["canvas_width"]  = &types.AttributeValueMemberN{Value: strconv.Itoa(size.Width)}
+	default:
+		item["canvas_width"] = &types.AttributeValueMemberN{Value: strconv.Itoa(size.Width)}
 		item["canvas_height"] = &types.AttributeValueMemberN{Value: strconv.Itoa(size.Height)}
 	}
 
@@ -428,9 +431,16 @@ func deleteAllPixels(ctx context.Context, sessionID string) (int, error) {
 
 func patchDiscord(webhookURL, content string) error {
 	body, _ := json.Marshal(map[string]string{"content": content})
-	req, _ := http.NewRequest(http.MethodPatch, webhookURL, bytes.NewBuffer(body))
+	req, err := http.NewRequest(http.MethodPatch, webhookURL, bytes.NewBuffer(body))
+	if err != nil {
+		return err
+	}
 	req.Header.Set("Content-Type", "application/json")
-	_, _ = http.DefaultClient.Do(req)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
 	return nil
 }
 

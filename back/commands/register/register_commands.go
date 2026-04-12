@@ -133,7 +133,11 @@ func main() {
 		fmt.Println("Erreur réseau :", err)
 		os.Exit(1)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			fmt.Println("Erreur fermeture body :", err)
+		}
+	}()
 
 	fmt.Println("Résultat :", resp.Status)
 }
