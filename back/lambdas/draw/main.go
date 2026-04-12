@@ -95,11 +95,20 @@ func handler(ctx context.Context, outerRequest events.APIGatewayProxyRequest) er
 		return patchDiscord(webhookURL, "No active session. An admin must start one with `/session start`.")
 	}
 
-	if session.CanvasWidth > 0 && session.CanvasHeight > 0 {
-		if x < 0 || x >= session.CanvasWidth || y < 0 || y >= session.CanvasHeight {
+	if session.CanvasWidth > 0 {
+		if x < 0 || x >= session.CanvasWidth {
 			return patchDiscord(webhookURL, fmt.Sprintf(
-				"Coordinates (%d, %d) are out of bounds. Canvas size is **%s** (0 to %d on X, 0 to %d on Y).",
-				x, y, session.CanvasSize, session.CanvasWidth-1, session.CanvasHeight-1,
+				"X coordinate (%d) is out of bounds. Width is limited to 0-%d.",
+				x, session.CanvasWidth-1,
+			))
+		}
+	}
+
+	if session.CanvasHeight > 0 {
+		if y < 0 || y >= session.CanvasHeight {
+			return patchDiscord(webhookURL, fmt.Sprintf(
+				"Y coordinate (%d) is out of bounds. Height is limited to 0-%d.",
+				y, session.CanvasHeight-1,
 			))
 		}
 	}
