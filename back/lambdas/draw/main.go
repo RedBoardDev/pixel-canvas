@@ -101,11 +101,20 @@ func handler(ctx context.Context, outerRequest events.APIGatewayProxyRequest) er
 		return patchDiscord(webhookURL, "No active session. An admin must start one with `/session start`.")
 	}
 
-	if session.CanvasWidth > 0 && session.CanvasHeight > 0 {
-		if x < 0 || x >= session.CanvasWidth || y < 0 || y >= session.CanvasHeight {
+	if session.CanvasWidth > 0 {
+		if x < 0 || x >= session.CanvasWidth {
 			return patchDiscord(webhookURL, fmt.Sprintf(
-				"Coordinates (%d, %d) are out of bounds. Canvas size is **%s** (0 to %d on X, 0 to %d on Y).",
-				x, y, session.CanvasSize, session.CanvasWidth-1, session.CanvasHeight-1,
+				"X coordinate (%d) is out of bounds. Width is limited to 0-%d.",
+				x, session.CanvasWidth-1,
+			))
+		}
+	}
+
+	if session.CanvasHeight > 0 {
+		if y < 0 || y >= session.CanvasHeight {
+			return patchDiscord(webhookURL, fmt.Sprintf(
+				"Y coordinate (%d) is out of bounds. Height is limited to 0-%d.",
+				y, session.CanvasHeight-1,
 			))
 		}
 	}
@@ -140,25 +149,25 @@ func handler(ctx context.Context, outerRequest events.APIGatewayProxyRequest) er
 }
 
 func getActiveSession(ctx context.Context) (*SessionItem, error) {
-    result, err := db.Scan(ctx, &dynamodb.ScanInput{
-        TableName:        aws.String(sessionsTable),
-        FilterExpression: aws.String("#s = :active AND SK = :meta"),
-        ExpressionAttributeNames: map[string]string{
-            "#s": "status",
-        },
-        ExpressionAttributeValues: map[string]types.AttributeValue{
-            ":active": &types.AttributeValueMemberS{Value: "active"},
-            ":meta":   &types.AttributeValueMemberS{Value: "METADATA"},
-        },
-    })
-    if err != nil || len(result.Items) == 0 {
-        return nil, err
-    }
-    var session SessionItem
-    if err := attributevalue.UnmarshalMap(result.Items[0], &session); err != nil {
-        return nil, err
-    }
-    return &session, nil
+	result, err := db.Scan(ctx, &dynamodb.ScanInput{
+		TableName:        aws.String(sessionsTable),
+		FilterExpression: aws.String("#s = :active AND SK = :meta"),
+		ExpressionAttributeNames: map[string]string{
+			"#s": "status",
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":active": &types.AttributeValueMemberS{Value: "active"},
+			":meta":   &types.AttributeValueMemberS{Value: "METADATA"},
+		},
+	})
+	if err != nil || len(result.Items) == 0 {
+		return nil, err
+	}
+	var session SessionItem
+	if err := attributevalue.UnmarshalMap(result.Items[0], &session); err != nil {
+		return nil, err
+	}
+	return &session, nil
 }
 
 func checkRateLimit(ctx context.Context, userID, sessionID string) (allowed bool, count int, err error) {
@@ -198,7 +207,7 @@ func checkRateLimit(ctx context.Context, userID, sessionID string) (allowed bool
 		return false, currentCount, nil
 	}
 
-	_, _ = db.PutItem(ctx, &dynamodb.PutItemInput{
+	if _, err := db.PutItem(ctx, &dynamodb.PutItemInput{
 		TableName: aws.String(rateLimitTable),
 		Item: map[string]types.AttributeValue{
 			"PK":           &types.AttributeValueMemberS{Value: pk},
@@ -207,7 +216,9 @@ func checkRateLimit(ctx context.Context, userID, sessionID string) (allowed bool
 			"window_start": &types.AttributeValueMemberS{Value: windowStart.Format(time.RFC3339)},
 			"TTL":          &types.AttributeValueMemberN{Value: strconv.FormatInt(ttl, 10)},
 		},
-	})
+	}); err != nil {
+		return false, 0, err
+	}
 
 	return true, currentCount, nil
 }
@@ -222,9 +233,16 @@ func parseOptions(options []shared.InteractionOption) map[string]interface{} {
 
 func patchDiscord(webhookURL, content string) error {
 	body, _ := json.Marshal(map[string]string{"content": content})
-	req, _ := http.NewRequest(http.MethodPatch, webhookURL, bytes.NewBuffer(body))
+	req, err := http.NewRequest(http.MethodPatch, webhookURL, bytes.NewBuffer(body))
+	if err != nil {
+		return err
+	}
 	req.Header.Set("Content-Type", "application/json")
-	_, _ = http.DefaultClient.Do(req)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
 	return nil
 }
 

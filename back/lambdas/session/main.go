@@ -46,33 +46,85 @@ type SessionItem struct {
 }
 
 type CanvasSize struct {
-	Width    int
-	Height   int
-	Infinite bool
+	Width          int
+	Height         int
+	Infinite       bool
+	WidthInfinite  bool
+	HeightInfinite bool
 }
 
-func parseCanvasSize(raw string) (*CanvasSize, error) {
-	raw = strings.TrimSpace(strings.ToLower(raw))
-	if raw == "infinite" || raw == "infini" || raw == "inf" {
-		return &CanvasSize{Infinite: true}, nil
+func parseCanvasSizeFromParts(widthRaw, heightRaw string) (*CanvasSize, string) {
+	hasWidth := widthRaw != "" && widthRaw != "<nil>"
+	hasHeight := heightRaw != "" && heightRaw != "<nil>"
+
+	if !hasWidth && !hasHeight {
+		return nil,
+			"Please specify a canvas size to start a new session.\n" +
+				"Examples:\n" +
+				"• `/session start width:100 height:100` — canvas of 100×100 pixels\n" +
+				"• `/session start width:infinite height:infinite` — fully unlimited canvas\n" +
+				"• `/session start width:100 height:infinite` — 100 wide, unlimited height"
 	}
-	parts := strings.Split(raw, "x")
-	if len(parts) != 2 {
-		return nil, fmt.Errorf("invalid format")
+
+	if hasWidth && !hasHeight {
+		return nil, "You specified a width but no height. Please provide both `width` and `height`."
 	}
-	w, errW := strconv.Atoi(strings.TrimSpace(parts[0]))
-	h, errH := strconv.Atoi(strings.TrimSpace(parts[1]))
-	if errW != nil || errH != nil || w <= 0 || h <= 0 {
-		return nil, fmt.Errorf("invalid dimensions")
+	if !hasWidth && hasHeight {
+		return nil, "You specified a height but no width. Please provide both `width` and `height`."
 	}
-	return &CanvasSize{Width: w, Height: h}, nil
+
+	var w int
+	widthInfinite := false
+	wLower := strings.ToLower(strings.TrimSpace(widthRaw))
+	if wLower == "infinite" || wLower == "inf" || wLower == "infini" {
+		widthInfinite = true
+	} else {
+		var err error
+		w, err = strconv.Atoi(widthRaw)
+		if err != nil || w <= 0 {
+			return nil, "Invalid width. Use a positive integer or `infinite`."
+		}
+	}
+
+	// Parse height
+	var h int
+	heightInfinite := false
+	hLower := strings.ToLower(strings.TrimSpace(heightRaw))
+	if hLower == "infinite" || hLower == "inf" || hLower == "infini" {
+		heightInfinite = true
+	} else {
+		var err error
+		h, err = strconv.Atoi(heightRaw)
+		if err != nil || h <= 0 {
+			return nil, "Invalid height. Use a positive integer or `infinite`."
+		}
+	}
+
+	if widthInfinite && heightInfinite {
+		return &CanvasSize{Infinite: true}, ""
+	}
+
+	return &CanvasSize{
+		Width:          w,
+		Height:         h,
+		WidthInfinite:  widthInfinite,
+		HeightInfinite: heightInfinite,
+	}, ""
 }
 
 func canvasSizeLabel(size *CanvasSize) string {
 	if size.Infinite {
 		return "Infinite"
 	}
-	return fmt.Sprintf("%dx%d", size.Width, size.Height)
+	wLabel := strconv.Itoa(size.Width)
+	if size.WidthInfinite {
+		wLabel = "∞"
+	}
+	hLabel := strconv.Itoa(size.Height)
+	if size.HeightInfinite {
+		hLabel = "∞"
+	}
+	return fmt.Sprintf("%sx%s", wLabel, hLabel)
 }
 
 func handler(ctx context.Context, outerRequest events.APIGatewayProxyRequest) error {
@@ -106,15 +158,17 @@ func handler(ctx context.Context, outerRequest events.APIGatewayProxyRequest) er
 
 	switch subcommand {
 	case "start":
-		sizeRaw := ""
-		if len(interaction.Data.Options[0].Options) > 0 {
-			for _, opt := range interaction.Data.Options[0].Options {
-				if opt.Name == "size" {
-					sizeRaw = fmt.Sprintf("%v", opt.Value)
-				}
+		widthRaw := ""
+		heightRaw := ""
+		for _, opt := range interaction.Data.Options[0].Options {
+			switch opt.Name {
+			case "width":
+				widthRaw = fmt.Sprintf("%v", opt.Value)
+			case "height":
+				heightRaw = fmt.Sprintf("%v", opt.Value)
 			}
 		}
-		return handleStart(ctx, webhookURL, userID, sizeRaw)
+		return handleStart(ctx, webhookURL, userID, widthRaw, heightRaw)
 	case "pause":
 		return handlePause(ctx, webhookURL)
 	case "reset":
@@ -124,7 +178,7 @@ func handler(ctx context.Context, outerRequest events.APIGatewayProxyRequest) er
 	}
 }
 
-func handleStart(ctx context.Context, webhookURL, userID string, sizeRaw string) error {
+func handleStart(ctx context.Context, webhookURL, userID, widthRaw, heightRaw string) error {
 	active, _ := getSessionByStatus(ctx, "active")
 	if active != nil {
 		return patchDiscord(webhookURL, fmt.Sprintf(
@@ -134,77 +188,67 @@ func handleStart(ctx context.Context, webhookURL, userID string, sizeRaw string)
 
 	paused, _ := getSessionByStatus(ctx, "paused")
 	if paused != nil {
-		if sizeRaw != "" {
-			size, err := parseCanvasSize(sizeRaw)
-			if err != nil {
-				return patchDiscord(webhookURL,
-					"Invalid size format. Use `100x100` for a fixed size or `infinite` for unlimited.",
-				)
+		if widthRaw == "" && heightRaw == "" {
+			if err := updateSessionStatus(ctx, paused.SessionID, "active"); err != nil {
+				return patchDiscord(webhookURL, "Failed to resume session.")
 			}
-			sizeLabel := canvasSizeLabel(size)
-			updateExpr := "SET #s = :active, updated_at = :now, canvas_size = :cs"
-			exprValues := map[string]types.AttributeValue{
-				":active": &types.AttributeValueMemberS{Value: "active"},
-				":now":    &types.AttributeValueMemberS{Value: time.Now().UTC().Format(time.RFC3339)},
-				":cs":     &types.AttributeValueMemberS{Value: sizeLabel},
-			}
-			if !size.Infinite {
-				updateExpr += ", canvas_width = :cw, canvas_height = :ch"
-				exprValues[":cw"] = &types.AttributeValueMemberN{Value: strconv.Itoa(size.Width)}
-				exprValues[":ch"] = &types.AttributeValueMemberN{Value: strconv.Itoa(size.Height)}
-			} else {
-				updateExpr += " REMOVE canvas_width, canvas_height"
-			}
-			_, err = db.UpdateItem(ctx, &dynamodb.UpdateItemInput{
-				TableName: aws.String("sessions"),
-				Key: map[string]types.AttributeValue{
-					"PK": &types.AttributeValueMemberS{Value: fmt.Sprintf("SESSION#%s", paused.SessionID)},
-					"SK": &types.AttributeValueMemberS{Value: "METADATA"},
-				},
-				UpdateExpression: aws.String(updateExpr),
-				ExpressionAttributeNames: map[string]string{
-					"#s": "status",
-				},
-				ExpressionAttributeValues: exprValues,
-			})
-			if err != nil {
-				return patchDiscord(webhookURL, "Failed to resume session with new size.")
+			sizeInfo := paused.CanvasSize
+			if sizeInfo == "" {
+				sizeInfo = "Infinite"
 			}
 			return patchDiscord(webhookURL, fmt.Sprintf(
-				"Session `%s` resumed with new canvas size: **%s**!",
-				paused.SessionID, sizeLabel,
+				"Session `%s` resumed! Canvas size: **%s**.",
+				paused.SessionID, sizeInfo,
 			))
 		}
 
-		// Pas de nouvelle taille — reprise simple
-		if err := updateSessionStatus(ctx, paused.SessionID, "active"); err != nil {
-			return patchDiscord(webhookURL, "Failed to resume session.")
+		size, errMsg := parseCanvasSizeFromParts(widthRaw, heightRaw)
+		if errMsg != "" {
+			return patchDiscord(webhookURL, errMsg)
 		}
-		sizeInfo := paused.CanvasSize
-		if sizeInfo == "" {
-			sizeInfo = "Infinite"
+		sizeLabel := canvasSizeLabel(size)
+		updateExpr := "SET #s = :active, updated_at = :now, canvas_size = :cs"
+		exprValues := map[string]types.AttributeValue{
+			":active": &types.AttributeValueMemberS{Value: "active"},
+			":now":    &types.AttributeValueMemberS{Value: time.Now().UTC().Format(time.RFC3339)},
+			":cs":     &types.AttributeValueMemberS{Value: sizeLabel},
+		}
+		switch {
+		case size.Infinite:
+			updateExpr += " REMOVE canvas_width, canvas_height"
+		case size.WidthInfinite:
+			updateExpr += ", canvas_height = :ch REMOVE canvas_width"
+			exprValues[":ch"] = &types.AttributeValueMemberN{Value: strconv.Itoa(size.Height)}
+		case size.HeightInfinite:
+			updateExpr += ", canvas_width = :cw REMOVE canvas_height"
+			exprValues[":cw"] = &types.AttributeValueMemberN{Value: strconv.Itoa(size.Width)}
+		default:
+			updateExpr += ", canvas_width = :cw, canvas_height = :ch"
+			exprValues[":cw"] = &types.AttributeValueMemberN{Value: strconv.Itoa(size.Width)}
+			exprValues[":ch"] = &types.AttributeValueMemberN{Value: strconv.Itoa(size.Height)}
+		}
+		_, err := db.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+			TableName: aws.String("sessions"),
+			Key: map[string]types.AttributeValue{
+				"PK": &types.AttributeValueMemberS{Value: fmt.Sprintf("SESSION#%s", paused.SessionID)},
+				"SK": &types.AttributeValueMemberS{Value: "METADATA"},
+			},
+			UpdateExpression: aws.String(updateExpr),
+			ExpressionAttributeNames: map[string]string{"#s": "status"},
+			ExpressionAttributeValues: exprValues,
+		})
+		if err != nil {
+			return patchDiscord(webhookURL, "Failed to resume session with new size.")
 		}
 		return patchDiscord(webhookURL, fmt.Sprintf(
-			"Session `%s` resumed! Canvas size: **%s**.",
-			paused.SessionID, sizeInfo,
+			"Session `%s` resumed with new canvas size: **%s**!",
+			paused.SessionID, sizeLabel,
 		))
 	}
 
-	// Aucune session existante — nouvelle session, taille obligatoire
-	if sizeRaw == "" {
-		return patchDiscord(webhookURL,
-			"Please specify a canvas size to start a new session.\n"+
-				"Examples:\n"+
-				"• `/session start size:100x100` — canvas of 100×100 pixels\n"+
-				"• `/session start size:infinite` — unlimited canvas",
-		)
-	}
-
-	size, err := parseCanvasSize(sizeRaw)
-	if err != nil {
-		return patchDiscord(webhookURL,
-			"Invalid size format. Use `100x100` for a fixed size or `infinite` for unlimited.",
-		)
+	size, errMsg := parseCanvasSizeFromParts(widthRaw, heightRaw)
+	if errMsg != "" {
+		return patchDiscord(webhookURL, errMsg)
 	}
 
 	sessionID := fmt.Sprintf("session-%d", time.Now().UnixMilli())
@@ -222,12 +266,19 @@ func handleStart(ctx context.Context, webhookURL, userID string, sizeRaw string)
 		"canvas_size": &types.AttributeValueMemberS{Value: sizeLabel},
 	}
 
-	if !size.Infinite {
+	switch {
+	case size.Infinite:
+		// no canvas size attributes
+	case size.WidthInfinite:
+		item["canvas_height"] = &types.AttributeValueMemberN{Value: strconv.Itoa(size.Height)}
+	case size.HeightInfinite:
+		item["canvas_width"] = &types.AttributeValueMemberN{Value: strconv.Itoa(size.Width)}
+	default:
 		item["canvas_width"] = &types.AttributeValueMemberN{Value: strconv.Itoa(size.Width)}
 		item["canvas_height"] = &types.AttributeValueMemberN{Value: strconv.Itoa(size.Height)}
 	}
 
-	_, err = db.PutItem(ctx, &dynamodb.PutItemInput{
+	_, err := db.PutItem(ctx, &dynamodb.PutItemInput{
 		TableName: aws.String("sessions"),
 		Item:      item,
 	})
@@ -259,12 +310,15 @@ func handlePause(ctx context.Context, webhookURL string) error {
 func handleReset(ctx context.Context, webhookURL string) error {
 	session, err := getSessionByStatus(ctx, "active")
 	if err != nil || session == nil {
-		return patchDiscord(webhookURL, "No active session to reset.")
+		session, err = getSessionByStatus(ctx, "paused")
+		if err != nil || session == nil {
+			return patchDiscord(webhookURL, "No active or paused session to reset.")
+		}
 	}
 
 	deleted, err := deleteAllPixels(ctx, session.SessionID)
 	if err != nil {
-		return patchDiscord(webhookURL, "Failed to reset canvas.")
+		return patchDiscord(webhookURL, fmt.Sprintf("Failed to reset canvas: %v", err))
 	}
 
 	return patchDiscord(webhookURL, fmt.Sprintf(
@@ -319,7 +373,6 @@ func deleteAllPixels(ctx context.Context, sessionID string) (int, error) {
 	var lastKey map[string]types.AttributeValue
 
 	for {
-
 		result, err := db.Query(ctx, &dynamodb.QueryInput{
 			TableName:              aws.String("canvas_pixels"),
 			KeyConditionExpression: aws.String("PK = :pk"),
@@ -378,9 +431,16 @@ func deleteAllPixels(ctx context.Context, sessionID string) (int, error) {
 
 func patchDiscord(webhookURL, content string) error {
 	body, _ := json.Marshal(map[string]string{"content": content})
-	req, _ := http.NewRequest(http.MethodPatch, webhookURL, bytes.NewBuffer(body))
+	req, err := http.NewRequest(http.MethodPatch, webhookURL, bytes.NewBuffer(body))
+	if err != nil {
+		return err
+	}
 	req.Header.Set("Content-Type", "application/json")
-	_, _ = http.DefaultClient.Do(req)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
 	return nil
 }
 
