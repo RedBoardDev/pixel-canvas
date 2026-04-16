@@ -45,19 +45,11 @@ export function CanvasGrid({
     const el = containerRef.current;
     if (!el) return;
 
-    if (canvasBounds?.isFinite()) {
+    if (canvasBounds) {
       initializedRef.current = true;
-      controls.centerOnCanvas(
-        el.clientWidth,
-        el.clientHeight,
-        canvasBounds.width,
-        canvasBounds.height,
-      );
-    } else if (canvasBounds) {
-      initializedRef.current = true;
-      controls.centerOnContainer(el.clientWidth, el.clientHeight);
+      controls.centerOnBounds(el.clientWidth, el.clientHeight, canvasBounds);
     }
-  }, [controls, canvasBounds]);
+  }, [canvasBounds, controls]);
 
   useViewportTracking(getViewportBounds, onViewportChange);
 
@@ -78,13 +70,8 @@ export function CanvasGrid({
   const onReset = useCallback(() => {
     const el = containerRef.current;
     if (!el) return;
-    if (canvasBounds?.isFinite()) {
-      controls.centerOnCanvas(
-        el.clientWidth,
-        el.clientHeight,
-        canvasBounds.width,
-        canvasBounds.height,
-      );
+    if (canvasBounds) {
+      controls.centerOnBounds(el.clientWidth, el.clientHeight, canvasBounds);
     } else {
       controls.resetView(el.clientWidth, el.clientHeight);
     }

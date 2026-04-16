@@ -11,6 +11,10 @@ export class CanvasBounds extends ValueObject<CanvasBoundsProps> {
     super(props);
   }
 
+  private static normalizeAxis(value: number): number {
+    return Number.isFinite(value) && value > 0 ? value : 0;
+  }
+
   static infinite(): CanvasBounds {
     return new CanvasBounds({ width: 0, height: 0 });
   }
@@ -23,10 +27,10 @@ export class CanvasBounds extends ValueObject<CanvasBoundsProps> {
   }
 
   static fromRaw(width: number, height: number): CanvasBounds {
-    if (width > 0 && height > 0) {
-      return CanvasBounds.finite(width, height);
-    }
-    return CanvasBounds.infinite();
+    return new CanvasBounds({
+      width: CanvasBounds.normalizeAxis(width),
+      height: CanvasBounds.normalizeAxis(height),
+    });
   }
 
   get width(): number {
@@ -37,30 +41,42 @@ export class CanvasBounds extends ValueObject<CanvasBoundsProps> {
     return this.props.height;
   }
 
+  hasFiniteWidth(): boolean {
+    return this.props.width > 0;
+  }
+
+  hasFiniteHeight(): boolean {
+    return this.props.height > 0;
+  }
+
   isInfinite(): boolean {
-    return this.props.width === 0;
+    return !this.hasFiniteWidth() && !this.hasFiniteHeight();
   }
 
   isFinite(): boolean {
-    return !this.isInfinite();
+    return this.hasFiniteWidth() && this.hasFiniteHeight();
   }
 
   containsPixel(x: number, y: number): boolean {
-    if (this.isInfinite()) return true;
-    return x >= 0 && x < this.props.width && y >= 0 && y < this.props.height;
+    const withinWidth = this.hasFiniteWidth() ? x >= 0 && x < this.props.width : true;
+    const withinHeight = this.hasFiniteHeight() ? y >= 0 && y < this.props.height : true;
+
+    return withinWidth && withinHeight;
   }
 
   containsChunk(cx: number, cy: number): boolean {
-    if (this.isInfinite()) return true;
     const chunkMinX = cx * CHUNK_SIZE;
     const chunkMinY = cy * CHUNK_SIZE;
     const chunkMaxX = chunkMinX + CHUNK_SIZE;
     const chunkMaxY = chunkMinY + CHUNK_SIZE;
-    return (
-      chunkMaxX > 0 &&
-      chunkMaxY > 0 &&
-      chunkMinX < this.props.width &&
-      chunkMinY < this.props.height
-    );
+
+    const withinWidth = this.hasFiniteWidth()
+      ? chunkMaxX > 0 && chunkMinX < this.props.width
+      : true;
+    const withinHeight = this.hasFiniteHeight()
+      ? chunkMaxY > 0 && chunkMinY < this.props.height
+      : true;
+
+    return withinWidth && withinHeight;
   }
 }

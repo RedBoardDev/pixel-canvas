@@ -6,6 +6,7 @@ import {
   MAX_ZOOM,
   MIN_ZOOM,
 } from "@/applications/Canvas/Domain/constants/canvas.constants";
+import type { CanvasBounds } from "@/applications/Canvas/Domain/value-objects/CanvasBounds.vo";
 import type { ViewportBounds } from "@/applications/Canvas/Domain/value-objects/ChunkCoordinate.vo";
 
 interface InteractionConfig {
@@ -120,26 +121,33 @@ export function useCanvasInteraction(config: InteractionConfig) {
     setOffset({ x: containerWidth / 2, y: containerHeight / 2 });
   }, []);
 
-  const centerOnCanvas = useCallback(
-    (
-      containerWidth: number,
-      containerHeight: number,
-      canvasWidth: number,
-      canvasHeight: number,
-    ) => {
-      const canvasPxW = canvasWidth * pixelSize;
-      const canvasPxH = canvasHeight * pixelSize;
+  const centerOnBounds = useCallback(
+    (containerWidth: number, containerHeight: number, bounds: CanvasBounds) => {
+      const hasFiniteWidth = bounds.hasFiniteWidth();
+      const hasFiniteHeight = bounds.hasFiniteHeight();
+
+      if (!hasFiniteWidth && !hasFiniteHeight) {
+        setZoom(DEFAULT_ZOOM);
+        setOffset({ x: containerWidth / 2, y: containerHeight / 2 });
+        return;
+      }
+
       const padding = 0.9;
-      const fitZoom = Math.min(
-        (containerWidth * padding) / canvasPxW,
-        (containerHeight * padding) / canvasPxH,
+      const fitZoomCandidates = [
+        hasFiniteWidth ? (containerWidth * padding) / (bounds.width * pixelSize) : MAX_ZOOM,
+        hasFiniteHeight ? (containerHeight * padding) / (bounds.height * pixelSize) : MAX_ZOOM,
         MAX_ZOOM,
-      );
-      const clampedZoom = Math.max(fitZoom, MIN_ZOOM);
+      ];
+      const clampedZoom = Math.max(Math.min(...fitZoomCandidates), MIN_ZOOM);
+
       setZoom(clampedZoom);
       setOffset({
-        x: (containerWidth - canvasPxW * clampedZoom) / 2,
-        y: (containerHeight - canvasPxH * clampedZoom) / 2,
+        x: hasFiniteWidth
+          ? (containerWidth - bounds.width * pixelSize * clampedZoom) / 2
+          : containerWidth / 2,
+        y: hasFiniteHeight
+          ? (containerHeight - bounds.height * pixelSize * clampedZoom) / 2
+          : containerHeight / 2,
       });
     },
     [pixelSize],
@@ -151,6 +159,6 @@ export function useCanvasInteraction(config: InteractionConfig) {
     hoverPos,
     getViewportBounds,
     handlers: { handleMouseDown, handleMouseMove, handleMouseUp, handleMouseLeave, handleWheel },
-    controls: { zoomIn, zoomOut, resetView, centerOnContainer, centerOnCanvas },
+    controls: { zoomIn, zoomOut, resetView, centerOnContainer, centerOnBounds },
   };
 }

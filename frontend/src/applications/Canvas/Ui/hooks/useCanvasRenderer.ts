@@ -40,41 +40,42 @@ export function useCanvasRenderer(
     const dpr = window.devicePixelRatio || 1;
     const w = canvas.width / dpr;
     const h = canvas.height / dpr;
-    const isFiniteBounds = canvasBounds?.isFinite() ?? false;
+    const hasFiniteWidth = canvasBounds?.hasFiniteWidth() ?? false;
+    const hasFiniteHeight = canvasBounds?.hasFiniteHeight() ?? false;
 
     ctx.save();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    // Background
     ctx.fillStyle = BG_COLOR;
     ctx.fillRect(0, 0, w, h);
 
     ctx.translate(offset.x, offset.y);
     ctx.scale(zoom, zoom);
 
-    // Viewport bounds in pixel coordinates
     const vpMinX = Math.floor(-offset.x / (PIXEL_SIZE * zoom)) - 1;
     const vpMinY = Math.floor(-offset.y / (PIXEL_SIZE * zoom)) - 1;
     const vpMaxX = Math.ceil((-offset.x + w) / (PIXEL_SIZE * zoom)) + 1;
     const vpMaxY = Math.ceil((-offset.y + h) / (PIXEL_SIZE * zoom)) + 1;
 
-    if (isFiniteBounds && canvasBounds) {
-      // Finite canvas: draw only the canvas area with the empty pixel color
-      ctx.fillStyle = EMPTY_PIXEL_COLOR;
-      ctx.fillRect(0, 0, canvasBounds.width * PIXEL_SIZE, canvasBounds.height * PIXEL_SIZE);
-    } else {
-      // Infinite canvas: fill entire visible area
-      ctx.fillStyle = EMPTY_PIXEL_COLOR;
-      ctx.fillRect(
-        vpMinX * PIXEL_SIZE,
-        vpMinY * PIXEL_SIZE,
-        (vpMaxX - vpMinX) * PIXEL_SIZE,
-        (vpMaxY - vpMinY) * PIXEL_SIZE,
-      );
-    }
+    const fillX = hasFiniteWidth ? 0 : vpMinX * PIXEL_SIZE;
+    const fillY = hasFiniteHeight ? 0 : vpMinY * PIXEL_SIZE;
+    const fillWidth =
+      hasFiniteWidth && canvasBounds
+        ? canvasBounds.width * PIXEL_SIZE
+        : (vpMaxX - vpMinX) * PIXEL_SIZE;
+    const fillHeight =
+      hasFiniteHeight && canvasBounds
+        ? canvasBounds.height * PIXEL_SIZE
+        : (vpMaxY - vpMinY) * PIXEL_SIZE;
 
-    // Draw pixels
+    ctx.fillStyle = EMPTY_PIXEL_COLOR;
+    ctx.fillRect(fillX, fillY, fillWidth, fillHeight);
+
     for (const [, pixel] of pixels) {
+      if (canvasBounds && !canvasBounds.containsPixel(pixel.coordinate.x, pixel.coordinate.y)) {
+        continue;
+      }
+
       ctx.fillStyle = pixel.color.hex;
       ctx.fillRect(
         pixel.coordinate.x * PIXEL_SIZE,
@@ -84,12 +85,11 @@ export function useCanvasRenderer(
       );
     }
 
-    // Grid lines (only when zoomed in)
     if (zoom >= 3) {
-      const gridMinX = isFiniteBounds ? Math.max(vpMinX, 0) : vpMinX;
-      const gridMinY = isFiniteBounds ? Math.max(vpMinY, 0) : vpMinY;
-      const gridMaxX = isFiniteBounds ? Math.min(vpMaxX, canvasBounds?.width ?? vpMaxX) : vpMaxX;
-      const gridMaxY = isFiniteBounds ? Math.min(vpMaxY, canvasBounds?.height ?? vpMaxY) : vpMaxY;
+      const gridMinX = hasFiniteWidth ? Math.max(vpMinX, 0) : vpMinX;
+      const gridMinY = hasFiniteHeight ? Math.max(vpMinY, 0) : vpMinY;
+      const gridMaxX = hasFiniteWidth ? Math.min(vpMaxX, canvasBounds?.width ?? vpMaxX) : vpMaxX;
+      const gridMaxY = hasFiniteHeight ? Math.min(vpMaxY, canvasBounds?.height ?? vpMaxY) : vpMaxY;
 
       ctx.strokeStyle = GRID_COLOR;
       ctx.lineWidth = 0.5 / zoom;
@@ -107,14 +107,37 @@ export function useCanvasRenderer(
       }
     }
 
-    // Canvas border (finite only)
-    if (isFiniteBounds && canvasBounds) {
+    if (canvasBounds && (hasFiniteWidth || hasFiniteHeight)) {
       ctx.strokeStyle = CANVAS_BORDER_COLOR;
       ctx.lineWidth = 2 / zoom;
-      ctx.strokeRect(0, 0, canvasBounds.width * PIXEL_SIZE, canvasBounds.height * PIXEL_SIZE);
+
+      if (hasFiniteWidth && hasFiniteHeight) {
+        ctx.strokeRect(0, 0, canvasBounds.width * PIXEL_SIZE, canvasBounds.height * PIXEL_SIZE);
+      } else if (hasFiniteWidth) {
+        const minY = vpMinY * PIXEL_SIZE;
+        const maxY = vpMaxY * PIXEL_SIZE;
+        const maxX = canvasBounds.width * PIXEL_SIZE;
+
+        ctx.beginPath();
+        ctx.moveTo(0, minY);
+        ctx.lineTo(0, maxY);
+        ctx.moveTo(maxX, minY);
+        ctx.lineTo(maxX, maxY);
+        ctx.stroke();
+      } else if (hasFiniteHeight) {
+        const minX = vpMinX * PIXEL_SIZE;
+        const maxX = vpMaxX * PIXEL_SIZE;
+        const maxY = canvasBounds.height * PIXEL_SIZE;
+
+        ctx.beginPath();
+        ctx.moveTo(minX, 0);
+        ctx.lineTo(maxX, 0);
+        ctx.moveTo(minX, maxY);
+        ctx.lineTo(maxX, maxY);
+        ctx.stroke();
+      }
     }
 
-    // Hover highlight (edit mode only, within bounds)
     if (hoverPos && showEditCursor) {
       const withinBounds = !canvasBounds || canvasBounds.containsPixel(hoverPos.x, hoverPos.y);
       if (withinBounds) {
@@ -131,7 +154,6 @@ export function useCanvasRenderer(
     ctx.restore();
   }, [canvasRef]);
 
-  // Resize observer
   useEffect(() => {
     const container = containerRef.current;
     const canvas = canvasRef.current;
