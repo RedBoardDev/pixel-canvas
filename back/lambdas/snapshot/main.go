@@ -56,12 +56,15 @@ type PixelItem struct {
 }
 
 type SessionItem struct {
-	PK        string `dynamodbav:"PK"`
-	SK        string `dynamodbav:"SK"`
-	Status    string `dynamodbav:"status"`
-	SessionID string `dynamodbav:"session_id"`
-	CreatedBy string `dynamodbav:"created_by"`
-	CreatedAt string `dynamodbav:"created_at"`
+	PK           string `dynamodbav:"PK"`
+	SK           string `dynamodbav:"SK"`
+	Status       string `dynamodbav:"status"`
+	SessionID    string `dynamodbav:"session_id"`
+	CreatedBy    string `dynamodbav:"created_by"`
+	CreatedAt    string `dynamodbav:"created_at"`
+	CanvasSize   string `dynamodbav:"canvas_size"`
+	CanvasWidth  int    `dynamodbav:"canvas_width"`
+	CanvasHeight int    `dynamodbav:"canvas_height"`
 }
 
 func handler(ctx context.Context, outerRequest events.APIGatewayProxyRequest) error {
@@ -97,7 +100,13 @@ func handler(ctx context.Context, outerRequest events.APIGatewayProxyRequest) er
 	minX, minY, maxX, maxY := getPixelBounds(pixels)
 	canvasW := maxX - minX + 1
 	canvasH := maxY - minY + 1
-	isLargeCanvas := canvasW > maxImageSize || canvasH > maxImageSize
+
+	var isLargeCanvas bool
+	if session.CanvasWidth > 0 && session.CanvasHeight > 0 {
+		isLargeCanvas = session.CanvasWidth > maxImageSize || session.CanvasHeight > maxImageSize
+	} else {
+		isLargeCanvas = canvasW > maxImageSize || canvasH > maxImageSize
+	}
 
 	imgBytes, width, height, err := renderCanvas(pixels)
 	if err != nil {
@@ -192,12 +201,12 @@ func renderCanvas(pixels []PixelItem) ([]byte, int, int, error) {
 
 	for _, p := range pixels {
 		var px, py int
-		_, _ = fmt.Sscanf(strings.TrimPrefix(p.SK, "PIXEL#"), "%d#%d", &px, &py)
-
+		if _, err := fmt.Sscanf(strings.TrimPrefix(p.SK, "PIXEL#"), "%d#%d", &px, &py); err != nil {
+			continue
+		}
 		ix := (px - minX) * blockSize
 		iy := (py - minY) * blockSize
 		c := hexToColor(p.Color)
-
 		for dy := 0; dy < blockSize; dy++ {
 			for dx := 0; dx < blockSize; dx++ {
 				img.Set(ix+dx, iy+dy, c)
@@ -209,7 +218,6 @@ func renderCanvas(pixels []PixelItem) ([]byte, int, int, error) {
 	if err := png.Encode(&buf, img); err != nil {
 		return nil, 0, 0, err
 	}
-
 	return buf.Bytes(), imgW, imgH, nil
 }
 
@@ -237,16 +245,28 @@ func postSnapshotToDiscord(webhookURL string, imgBytes []byte, sessionID string,
 	jsonHeader := make(textproto.MIMEHeader)
 	jsonHeader.Set("Content-Disposition", `form-data; name="payload_json"`)
 	jsonHeader.Set("Content-Type", "application/json")
-	jsonPart, _ := writer.CreatePart(jsonHeader)
-	_, _ = jsonPart.Write(jsonBytes)
+	jsonPart, err := writer.CreatePart(jsonHeader)
+	if err != nil {
+		return err
+	}
+	if _, err := jsonPart.Write(jsonBytes); err != nil {
+		return err
+	}
 
 	fileHeader := make(textproto.MIMEHeader)
 	fileHeader.Set("Content-Disposition", `form-data; name="files[0]"; filename="snapshot.png"`)
 	fileHeader.Set("Content-Type", "image/png")
-	filePart, _ := writer.CreatePart(fileHeader)
-	_, _ = filePart.Write(imgBytes)
+	filePart, err := writer.CreatePart(fileHeader)
+	if err != nil {
+		return err
+	}
+	if _, err := filePart.Write(imgBytes); err != nil {
+		return err
+	}
 
-	writer.Close()
+	if err := writer.Close(); err != nil {
+		return err
+	}
 
 	req, err := http.NewRequest(http.MethodPatch, webhookURL, &body)
 	if err != nil {
@@ -258,7 +278,7 @@ func postSnapshotToDiscord(webhookURL string, imgBytes []byte, sessionID string,
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode >= 400 {
 		b, _ := io.ReadAll(resp.Body)
@@ -283,19 +303,13 @@ func getPixelBounds(pixels []PixelItem) (minX, minY, maxX, maxY int) {
 	maxX, maxY = -1<<31, -1<<31
 	for _, p := range pixels {
 		var x, y int
-		_, _ = fmt.Sscanf(strings.TrimPrefix(p.SK, "PIXEL#"), "%d#%d", &x, &y)
-		if x < minX {
-			minX = x
+		if _, err := fmt.Sscanf(strings.TrimPrefix(p.SK, "PIXEL#"), "%d#%d", &x, &y); err != nil {
+			continue
 		}
-		if x > maxX {
-			maxX = x
-		}
-		if y < minY {
-			minY = y
-		}
-		if y > maxY {
-			maxY = y
-		}
+		if x < minX { minX = x }
+		if x > maxX { maxX = x }
+		if y < minY { minY = y }
+		if y > maxY { maxY = y }
 	}
 	return
 }
@@ -356,9 +370,16 @@ func getAllPixels(ctx context.Context, sessionID string) ([]PixelItem, error) {
 
 func patchDiscord(webhookURL, content string) error {
 	body, _ := json.Marshal(map[string]string{"content": content})
-	req, _ := http.NewRequest(http.MethodPatch, webhookURL, bytes.NewBuffer(body))
+	req, err := http.NewRequest(http.MethodPatch, webhookURL, bytes.NewBuffer(body))
+	if err != nil {
+		return err
+	}
 	req.Header.Set("Content-Type", "application/json")
-	_, _ = http.DefaultClient.Do(req)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
 	return nil
 }
 

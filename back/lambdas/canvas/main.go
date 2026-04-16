@@ -88,13 +88,16 @@ func postSnapshotEmbed(webhookURL string, session *SessionItem) error {
 	}
 
 	body, _ := json.Marshal(payload)
-	req, _ := http.NewRequest(http.MethodPatch, webhookURL, bytes.NewBuffer(body))
+	req, err := http.NewRequest(http.MethodPatch, webhookURL, bytes.NewBuffer(body))
+	if err != nil {
+		return err
+	}
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	return nil
 }
 
@@ -135,9 +138,16 @@ func statusEmoji(status string) string {
 
 func patchDiscord(webhookURL, content string) error {
 	body, _ := json.Marshal(map[string]string{"content": content})
-	req, _ := http.NewRequest(http.MethodPatch, webhookURL, bytes.NewBuffer(body))
+	req, err := http.NewRequest(http.MethodPatch, webhookURL, bytes.NewBuffer(body))
+	if err != nil {
+		return err
+	}
 	req.Header.Set("Content-Type", "application/json")
-	_, _ = http.DefaultClient.Do(req)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
 	return nil
 }
 

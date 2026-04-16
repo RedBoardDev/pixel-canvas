@@ -9,17 +9,17 @@ import (
 )
 
 type CommandChoice struct {
-    Name  string `json:"name"`
-    Value string `json:"value"`
+	Name  string `json:"name"`
+	Value string `json:"value"`
 }
 
 type CommandOption struct {
-    Type        int             `json:"type"`
-    Name        string          `json:"name"`
-    Description string          `json:"description"`
-    Required    bool            `json:"required"`
-    Choices     []CommandChoice `json:"choices,omitempty"`
-	Options        []CommandOption  `json:"options,omitempty"`
+	Type        int             `json:"type"`
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	Required    bool            `json:"required"`
+	Choices     []CommandChoice `json:"choices,omitempty"`
+	Options     []CommandOption `json:"options,omitempty"`
 }
 
 type Command struct {
@@ -28,8 +28,6 @@ type Command struct {
 	Options     []CommandOption `json:"options,omitempty"`
 }
 
-
-// Discord option types
 const (
 	OptionTypeSubCommand = 1
 	OptionTypeString     = 3
@@ -58,22 +56,22 @@ func main() {
 					Description: "Choose a color",
 					Required:    true,
 					Choices: []CommandChoice{
-						{Name: "Rouge-Orange", Value: "#FF4500"},
+						{Name: "Red-Orange", Value: "#FF4500"},
 						{Name: "Orange", Value: "#FFA800"},
-						{Name: "Jaune", Value: "#FFD635"},
-						{Name: "Vert", Value: "#00A368"},
-						{Name: "Vert Clair", Value: "#7EED56"},
-						{Name: "Bleu Foncé", Value: "#2450A4"},
-						{Name: "Bleu", Value: "#3690EA"},
+						{Name: "Yellow", Value: "#FFD635"},
+						{Name: "Green", Value: "#00A368"},
+						{Name: "Light Green", Value: "#7EED56"},
+						{Name: "Dark Blue", Value: "#2450A4"},
+						{Name: "Blue", Value: "#3690EA"},
 						{Name: "Cyan", Value: "#51E9F4"},
-						{Name: "Violet", Value: "#811E9F"},
-						{Name: "Lavande", Value: "#B44AC0"},
-						{Name: "Rose", Value: "#FF99AA"},
-						{Name: "Marron", Value: "#9C6926"},
-						{Name: "Noir", Value: "#000000"},
-						{Name: "Gris", Value: "#898D90"},
-						{Name: "Gris Clair", Value: "#D4D7D9"},
-						{Name: "Blanc", Value: "#FFFFFF"},
+						{Name: "Purple", Value: "#811E9F"},
+						{Name: "Lavender", Value: "#B44AC0"},
+						{Name: "Pink", Value: "#FF99AA"},
+						{Name: "Brown", Value: "#9C6926"},
+						{Name: "Black", Value: "#000000"},
+						{Name: "Gray", Value: "#898D90"},
+						{Name: "Light Gray", Value: "#D4D7D9"},
+						{Name: "White", Value: "#FFFFFF"},
 					},
 				},
 			},
@@ -97,8 +95,14 @@ func main() {
 					Options: []CommandOption{
 						{
 							Type:        OptionTypeString,
-							Name:        "size",
-							Description: "Canvas size (ex: 100x100) or 'infinite'. Required for new sessions.",
+							Name:        "width",
+							Description: "Canvas width in pixels (e.g. 100) or 'infinite'.",
+							Required:    false,
+						},
+						{
+							Type:        OptionTypeString,
+							Name:        "height",
+							Description: "Canvas height in pixels (e.g. 100) or 'infinite'.",
 							Required:    false,
 						},
 					},
@@ -129,7 +133,11 @@ func main() {
 		fmt.Println("Erreur réseau :", err)
 		os.Exit(1)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			fmt.Println("Erreur fermeture body :", err)
+		}
+	}()
 
 	fmt.Println("Résultat :", resp.Status)
 }
