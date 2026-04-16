@@ -8,6 +8,14 @@ export interface CanvasIdentity {
   canvasVersion: number;
 }
 
+export interface CanvasRateLimit {
+  limit: number;
+  used: number;
+  remaining: number;
+  windowStartedAt: Date;
+  resetAt: Date;
+}
+
 export interface CanvasChunkSnapshot {
   sessionId: string | null;
   canvasVersion: number | null;
@@ -18,6 +26,7 @@ export interface CanvasChunkSnapshot {
 
 export interface CanvasPlacedPixelResult extends CanvasIdentity {
   pixel: Pixel;
+  rateLimit: CanvasRateLimit;
 }
 
 export interface CanvasPixelUpdateEvent extends CanvasIdentity {

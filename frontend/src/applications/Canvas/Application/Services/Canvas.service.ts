@@ -1,11 +1,10 @@
 import type { Pixel } from "@/applications/Canvas/Domain/entities/Pixel.entity";
-import { CooldownNotExpiredError } from "@/applications/Canvas/Domain/errors/canvas.errors";
+import { RateLimitExceededError } from "@/applications/Canvas/Domain/errors/canvas.errors";
 import type {
   CanvasGateway,
   ConnectionStatus,
 } from "@/applications/Canvas/Domain/repositories/canvas-gateway.port";
 import type { PixelRepository } from "@/applications/Canvas/Domain/repositories/pixel-repository.port";
-import { canPlacePixel } from "@/applications/Canvas/Domain/rules/placement.rules";
 import type {
   CanvasChunkSnapshot,
   CanvasPixelUpdateEvent,
@@ -21,14 +20,12 @@ interface PlacePixelParams {
   x: number;
   y: number;
   color: string;
-  lastPlacedAt: Date | null;
 }
 
 export class CanvasService {
   constructor(
     private readonly pixelRepo: PixelRepository,
     private readonly gateway: CanvasGateway,
-    private readonly cooldownMs: number,
   ) {}
 
   async getChunk(cx: number, cy: number): Promise<Result<CanvasChunkSnapshot>> {
@@ -50,12 +47,6 @@ export class CanvasService {
   }
 
   async placePixel(params: PlacePixelParams): Promise<Result<CanvasPlacedPixelResult>> {
-    const { allowed, remainingMs } = canPlacePixel(params.lastPlacedAt, this.cooldownMs);
-    if (!allowed) {
-      const err = new CooldownNotExpiredError(remainingMs);
-      return Result.fail(err.message, undefined, err.code);
-    }
-
     try {
       const result = await this.pixelRepo.placePixel(
         Coordinate.create(params.x, params.y),
@@ -63,6 +54,10 @@ export class CanvasService {
       );
       return Result.ok(result);
     } catch (error) {
+      if (error instanceof RateLimitExceededError) {
+        return Result.fail(error.message, error, error.code);
+      }
+
       return Result.fail("Failed to place pixel", error);
     }
   }

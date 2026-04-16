@@ -79,7 +79,6 @@ All client-side variables are prefixed with `NEXT_PUBLIC_`.
 | `NEXT_PUBLIC_WS_BASE_URL` | Client | — | WebSocket API Gateway URL |
 | `NEXT_PUBLIC_DISCORD_CLIENT_ID` | Client | — | Discord OAuth2 client ID |
 | `NEXT_PUBLIC_DISCORD_REDIRECT_URI` | Client | — | OAuth2 callback URL |
-| `NEXT_PUBLIC_CANVAS_COOLDOWN_MS` | Client | `3000` | Pixel placement cooldown (ms) |
 | `CUSTOM_AWS_REGION` | Server | — | AWS region for DynamoDB access |
 | `DISCORD_CLIENT_SECRET` | Server | — | Discord OAuth2 client secret |
 | `DISCORD_REDIRECT_URI` | Server | — | OAuth2 callback (server-side) |

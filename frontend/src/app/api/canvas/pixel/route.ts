@@ -73,36 +73,49 @@ export const POST = withAuth(async (request, auth) => {
 
   const normalizedColor = color.toUpperCase();
 
-  const session = await getActiveSession();
-  if (!session) {
-    return errorResponse(409, "no active session");
+  try {
+    const session = await getActiveSession();
+    if (!session) {
+      return errorResponse(409, "no active session");
+    }
+
+    const rateCheck = await checkRateLimit(auth.user.discordId, session.session_id);
+    if (!rateCheck.allowed) {
+      return errorResponse(429, "rate limit reached", {
+        code: "RATE_LIMIT_REACHED",
+        rateLimit: rateCheck.rateLimit,
+      });
+    }
+
+    const rateLimit = await incrementRateLimit(
+      auth.user.discordId,
+      session.session_id,
+      rateCheck.count,
+    );
+
+    const pixel = await putPixel(
+      session.session_id,
+      session.canvas_version,
+      x,
+      y,
+      normalizedColor,
+      auth.user.discordId,
+      auth.user.username,
+    );
+
+    return NextResponse.json({
+      sessionId: session.session_id,
+      canvasVersion: session.canvas_version,
+      x,
+      y,
+      color: pixel.color,
+      userId: pixel.user_id,
+      username: pixel.username,
+      updatedAt: pixel.updated_at,
+      rateLimit,
+    });
+  } catch (error) {
+    console.error(error);
+    return errorResponse(500, "failed to place pixel");
   }
-
-  const rateCheck = await checkRateLimit(auth.user.discordId, session.session_id);
-  if (!rateCheck.allowed) {
-    return errorResponse(429, "rate limit reached");
-  }
-
-  const pixel = await putPixel(
-    session.session_id,
-    session.canvas_version,
-    x,
-    y,
-    normalizedColor,
-    auth.user.discordId,
-    auth.user.username,
-  );
-
-  await incrementRateLimit(auth.user.discordId, session.session_id, rateCheck.count);
-
-  return NextResponse.json({
-    sessionId: session.session_id,
-    canvasVersion: session.canvas_version,
-    x,
-    y,
-    color: pixel.color,
-    userId: pixel.user_id,
-    username: pixel.username,
-    updatedAt: pixel.updated_at,
-  });
 });

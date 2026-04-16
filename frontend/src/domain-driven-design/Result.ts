@@ -4,8 +4,15 @@ export abstract class Result<T> {
   protected _value?: T;
   protected _error?: string;
   protected _errorCode?: string;
+  protected _cause?: unknown;
 
-  protected constructor(isSuccess: boolean, error?: string, value?: T, errorCode?: string) {
+  protected constructor(
+    isSuccess: boolean,
+    error?: string,
+    value?: T,
+    errorCode?: string,
+    cause?: unknown,
+  ) {
     if (isSuccess && error) {
       throw new Error("InvalidOperation: A result cannot be successful and contain an error");
     }
@@ -18,6 +25,7 @@ export abstract class Result<T> {
     this._error = error;
     this._value = value;
     this._errorCode = errorCode;
+    this._cause = cause;
   }
 
   public getValue(): T {
@@ -35,6 +43,10 @@ export abstract class Result<T> {
     return this._errorCode;
   }
 
+  public getCause(): unknown {
+    return this._cause;
+  }
+
   public static ok<U>(value?: U): Result<U> {
     return new Ok<U>(value);
   }
@@ -43,7 +55,7 @@ export abstract class Result<T> {
     if (error !== undefined) {
       console.error(error);
     }
-    return new Fail<U>(errorMessage, errorCode);
+    return new Fail<U>(errorMessage, errorCode, error);
   }
 
   public static combine(results: Result<unknown>[]): Result<unknown> {
@@ -69,7 +81,7 @@ class Ok<T> extends Result<T> {
 }
 
 class Fail<T> extends Result<T> {
-  constructor(error: string, errorCode?: string) {
-    super(false, error, undefined, errorCode);
+  constructor(error: string, errorCode?: string, cause?: unknown) {
+    super(false, error, undefined, errorCode, cause);
   }
 }

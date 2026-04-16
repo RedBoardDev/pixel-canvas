@@ -2,47 +2,69 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { getCanvasService } from "@/applications/Canvas/Application/Services/CanvasServiceProvider";
-import type { CanvasPlacedPixelResult } from "@/applications/Canvas/Domain/types/canvas.types";
-import { createAppConfig } from "@/lib/config/createAppConfig";
-
-const { canvasCooldownMs } = createAppConfig();
+import { RateLimitExceededError } from "@/applications/Canvas/Domain/errors/canvas.errors";
+import type {
+  CanvasRateLimit,
+  CanvasPlacedPixelResult,
+} from "@/applications/Canvas/Domain/types/canvas.types";
 
 export function usePixelPlacement() {
-  const [lastPlacedAt, setLastPlacedAt] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPlacing, setIsPlacing] = useState(false);
   const [isCooldown, setIsCooldown] = useState(false);
+  const [rateLimit, setRateLimit] = useState<CanvasRateLimit | null>(null);
 
   const service = getCanvasService();
 
   useEffect(() => {
-    if (!lastPlacedAt) return setIsCooldown(false);
+    if (!rateLimit || rateLimit.remaining > 0) {
+      setIsCooldown(false);
+      return;
+    }
+
+    const remainingMs = rateLimit.resetAt.getTime() - Date.now();
+    if (remainingMs <= 0) {
+      setIsCooldown(false);
+      setRateLimit(null);
+      return;
+    }
+
     setIsCooldown(true);
-    const remaining = canvasCooldownMs - (Date.now() - lastPlacedAt.getTime());
-    if (remaining <= 0) return setIsCooldown(false);
-    const timer = setTimeout(() => setIsCooldown(false), remaining);
+    const timer = setTimeout(() => {
+      setIsCooldown(false);
+      setRateLimit(null);
+    }, remainingMs);
+
     return () => clearTimeout(timer);
-  }, [lastPlacedAt]);
+  }, [rateLimit]);
 
   const placePixel = useCallback(
     async (x: number, y: number, color: string): Promise<CanvasPlacedPixelResult | null> => {
       setIsPlacing(true);
       setError(null);
 
-      const result = await service.placePixel({ x, y, color, lastPlacedAt });
+      try {
+        const result = await service.placePixel({ x, y, color });
 
-      setIsPlacing(false);
+        if (result.isFailure) {
+          const cause = result.getCause();
+          if (cause instanceof RateLimitExceededError) {
+            setRateLimit(cause.rateLimit);
+          }
 
-      if (result.isFailure) {
-        setError(result.getError());
-        return null;
+          setError(result.getError());
+          return null;
+        }
+
+        const placedPixel = result.getValue();
+        setRateLimit(placedPixel.rateLimit);
+        return placedPixel;
+      } finally {
+        setIsPlacing(false);
       }
-
-      setLastPlacedAt(new Date());
-      return result.getValue();
     },
-    [lastPlacedAt, service],
+    [service],
   );
 
-  return { placePixel, isPlacing, error, lastPlacedAt, isCooldown };
+  return { placePixel, isPlacing, error, isCooldown, rateLimit };
 }

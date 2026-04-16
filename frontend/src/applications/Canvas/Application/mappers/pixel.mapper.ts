@@ -1,4 +1,6 @@
 import { Pixel } from "@/applications/Canvas/Domain/entities/Pixel.entity";
+import type { CanvasRateLimitDto } from "@/applications/Canvas/Application/dto/CanvasRateLimit.dto";
+import type { CanvasRateLimit } from "@/applications/Canvas/Domain/types/canvas.types";
 import { Color } from "@/applications/Canvas/Domain/value-objects/Color.vo";
 import { Coordinate } from "@/applications/Canvas/Domain/value-objects/Coordinate.vo";
 
@@ -30,6 +32,13 @@ export interface ChunkResponseDto {
 export interface PixelResponseDto extends PixelDto {
   sessionId: string;
   canvasVersion: number;
+  rateLimit: CanvasRateLimitDto;
+}
+
+export interface ApiErrorDto {
+  error: string;
+  code?: string;
+  rateLimit?: CanvasRateLimitDto;
 }
 
 export interface PixelUpdatedEventDto {
@@ -87,6 +96,18 @@ export const pixelMapper = {
       userId: pixel.userId,
       username: pixel.username,
       updatedAt: pixel.updatedAt.toISOString(),
+    };
+  },
+};
+
+export const rateLimitMapper = {
+  toDomain(dto: CanvasRateLimitDto): CanvasRateLimit {
+    return {
+      limit: dto.limit,
+      used: dto.used,
+      remaining: dto.remaining,
+      windowStartedAt: new Date(dto.windowStartedAt),
+      resetAt: new Date(dto.resetAt),
     };
   },
 };
